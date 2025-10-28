@@ -1,0 +1,13 @@
+{
+  "interactions": [
+    {
+      "agent": "chatgpt",
+      "date": "2025-10-20T15:30:00Z",
+      "purpose": "Generare funcție solver N-Queens și sugestii de parsare",
+      "prompt": "Scrie o functie Python care rezolva N-Queens...",
+      "response_summary": "Funcție backtracking, sugestii de reprezentare",
+      "transcript": "PROMPT: ...\nRESPONSE: def solve(...): ...",
+      "authors": ["RobertoSpy"]
+    }
+  ]
+}
