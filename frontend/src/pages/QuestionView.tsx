@@ -1,75 +1,176 @@
-import React from "react";
-import { getQuestion, submitAnswer, downloadPdfHex } from "../api";
+import React, { useEffect, useState } from "react";
+import { getQuestion, submitAnswer } from "../api";
 
-export default function QuestionView({ id, onBack }: { id: string, onBack?: () => void }) {
-  const [q, setQ] = React.useState<any>(null);
-  const [answerText, setAnswerText] = React.useState("");
-  const [pdfFile, setPdfFile] = React.useState<File | undefined>(undefined);
-  const [result, setResult] = React.useState<any>(null);
+type PayoffCell = [number, number];
 
-  React.useEffect(() => {
-    fetchQuestion();
+type Question = {
+  id: string;
+  prompt: string;
+  data?: {
+    matrix_lines?: string[];
+    payoff_matrix?: PayoffCell[][];
+    row_labels?: string[];
+    col_labels?: string[];
+  };
+};
+
+export default function QuestionView({ id, onBack }: { id: string, onBack: () => void }) {
+  const [question, setQuestion] = useState<Question | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [hasEquilibrium, setHasEquilibrium] = useState<"da" | "nu" | "">("");
+  const [profilesText, setProfilesText] = useState<string>(""); // fallback free-text
+  const [selectedProfiles, setSelectedProfiles] = useState<string[]>([]);
+  const [result, setResult] = useState<any>(null);
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      const q = await getQuestion(id);
+      setQuestion(q);
+      setLoading(false);
+      setHasEquilibrium("");
+      setProfilesText("");
+      setSelectedProfiles([]);
+      setResult(null);
+    }
+    load();
   }, [id]);
 
-  async function fetchQuestion() {
-    const res = await getQuestion(id);
-    setQ(res);
+  if (loading) return <div>Loading...</div>;
+  if (!question) return <div>Question not found</div>;
+
+  const payoff = question.data?.payoff_matrix;
+  const matrixLines = question.data?.matrix_lines;
+  const rowLabels = question.data?.row_labels ?? [];
+  const colLabels = question.data?.col_labels ?? [];
+
+  function toggleCell(i: number, j: number) {
+    const key = `(${i + 1},${j + 1})`;
+    setSelectedProfiles(prev => {
+      if (prev.includes(key)) return prev.filter(x => x !== key);
+      return [...prev, key];
+    });
   }
 
-  async function onSubmit(e: React.FormEvent) {
+  function renderTableFromPayoff() {
+    if (!payoff) return null;
+    return (
+      <div className="payoff-wrap">
+        <table className="payoff-table" aria-label="payoff table">
+          <thead>
+            <tr>
+              <th></th>
+              {colLabels.map((c, j) => (
+                <th key={j}>{c}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {payoff.map((row, i) => (
+              <tr key={i}>
+                <td className="strategy-label">{rowLabels[i] ?? `R${i + 1}`}</td>
+                {row.map((cell, j) => {
+                  const key = `(${i + 1},${j + 1})`;
+                  const selected = selectedProfiles.includes(key);
+                  return (
+                    <td
+                      key={j}
+                      className={`cell ${selected ? "selected" : ""}`}
+                      onClick={() => toggleCell(i, j)}
+                      title={`Click pentru a marca ca profil: ${key}`}
+                    >
+                      <div className="payoff">({cell[0]}, {cell[1]})</div>
+                      <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>{key}</div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  function renderTableFromLines() {
+    if (!matrixLines) return null;
+    return (
+      <pre style={{ background: "#fafafa", padding: 8, borderRadius: 4 }}>
+        {matrixLines.join("\n")}
+      </pre>
+    );
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    try {
-      const res = await submitAnswer(id, answerText, pdfFile);
-      setResult(res);
-    } catch (err) {
-      console.error(err);
-      alert("Eroare la submit");
-    }
-  }
+    let submission = "";
 
-  async function onDownload() {
-    const res = await downloadPdfHex(id);
-    if (res.pdf_bytes_base64) {
-      // hex string back to bytes
-      const hex = res.pdf_bytes_base64 as string;
-      const bytes = new Uint8Array(hex.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)));
-      const blob = new Blob([bytes], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
-    } else {
-      alert("Nu există PDF");
-    }
+    if (hasEquilibrium === "da") submission = "Da";
+    else if (hasEquilibrium === "nu") submission = "Nu";
+
+    const profiles = selectedProfiles.length ? selectedProfiles.join(" ") : profilesText.trim();
+    if (profiles) submission += " " + profiles;
+
+    const res = await submitAnswer(question.id, submission);
+    setResult(res);
   }
 
   return (
-    <section>
-      <button onClick={onBack}>Înapoi</button>
-      <h2>Întrebare</h2>
-      {q ? (
-        <>
-          <p><strong>Prompt:</strong> {q.prompt}</p>
-          <p><strong>Dimensiune:</strong> {q.n}x{q.n}</p>
-          <button onClick={onDownload}>Descarcă PDF</button>
-          <form onSubmit={onSubmit}>
-            <label>Răspuns text (ex: (1,3),(2,5),... sau board cu Q):
-              <textarea value={answerText} onChange={(e) => setAnswerText(e.target.value)} rows={6} cols={60} />
-            </label>
-            <label>SAU upload PDF:
-              <input type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files ? e.target.files[0] : undefined)} />
-            </label>
-            <button type="submit">Trimite</button>
-          </form>
-          {result && (
+    <div className="card" style={{ maxWidth: 1000, margin: "0 auto", padding: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <h3 style={{ margin: 0 }}>{question.prompt}</h3>
+        <div>
+          <button className="btn" onClick={onBack} style={{ marginRight: 8 }}>Înapoi</button>
+          <button className="btn btn-ghost" onClick={() => window.location.reload()}>Reîncarcă</button>
+        </div>
+      </div>
+
+      <div>
+        {payoff ? renderTableFromPayoff() : renderTableFromLines()}
+
+        <form onSubmit={handleSubmit} style={{ marginTop: 16 }}>
+          <div style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
             <div>
-              <h3>Evaluare</h3>
-              <p>Scor: {result.result.score_percent}%</p>
-              <p>Număr poziții corecte: {result.result.num_correct}</p>
-              <p>Conflicte: {result.result.conflicts}</p>
-              <pre>Poziții corecte: {JSON.stringify(result.result.correct_positions)}</pre>
+              <label style={{ marginRight: 12 }}>
+                <input type="radio" name="has" value="da" checked={hasEquilibrium === "da"} onChange={() => setHasEquilibrium("da")} />
+                {" "}Da
+              </label>
+              <label>
+                <input type="radio" name="has" value="nu" checked={hasEquilibrium === "nu"} onChange={() => setHasEquilibrium("nu")} />
+                {" "}Nu
+              </label>
             </div>
-          )}
-        </>
-      ) : <p>Loading...</p>}
-    </section>
+
+            <div style={{ flex: 1, minWidth: 260 }}>
+              <label style={{ display: "block", marginBottom: 6, color: "#333", fontSize: 14 }}>
+                Profile (poți click pe celule pentru a le selecta; sau scrie manual):
+              </label>
+              <input
+                type="text"
+                value={profilesText}
+                onChange={(e) => setProfilesText(e.target.value)}
+                placeholder="(1,2) (2,1) sau 1,2;2,1"
+                style={{ width: "100%", padding: "8px 10px", borderRadius: 4, border: "1px solid #ccc" }}
+              />
+              <div style={{ marginTop: 6, fontSize: 13, color: "#444" }}>
+                Selected: {selectedProfiles.join(", ") || "(none)"}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="submit" className="btn btn-primary">Trimite</button>
+            </div>
+          </div>
+        </form>
+
+        {result && (
+          <div className="result-box">
+            <div className="score">Scor: {result.result?.score_percent ?? result.score_percent ?? "—"}%</div>
+            <div><strong>Feedback:</strong> {result.result?.note ?? result.note ?? ""}</div>
+            <pre style={{ marginTop: 8, whiteSpace: "pre-wrap" }}>{JSON.stringify(result.result ?? result, null, 2)}</pre>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

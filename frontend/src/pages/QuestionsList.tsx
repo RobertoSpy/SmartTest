@@ -14,17 +14,19 @@ export default function QuestionsList({ onOpen }: { onOpen: (id: string) => void
   }
 
   return (
-    <section>
+    <section className="card">
       <h2>Întrebări generate</h2>
-      <ul>
+      <ul style={{ paddingLeft: 18 }}>
         {questions.map((q) => (
-          <li key={q.id}>
-            {q.id} — {q.type} — n={q.n} —
-            <button onClick={() => onOpen(q.id)}>vezi</button>
+          <li key={q.id} style={{ marginBottom: 8 }}>
+            <strong>{q.type}</strong> — id: <code style={{ color: "#333" }}>{q.id}</code>
+            <div style={{ marginTop: 6 }}>
+              <button className="btn" onClick={() => onOpen(q.id)}>Vezi</button>
+            </div>
           </li>
         ))}
       </ul>
-      <button onClick={fetchList}>Reîncarcă listă</button>
+      <button className="btn" onClick={fetchList} style={{ marginTop: 8 }}>Reîncarcă listă</button>
     </section>
   );
 }

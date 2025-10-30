@@ -14,15 +14,12 @@ def gen_uuid() -> str:
 class Question(SQLModel, table=True):
     id: Optional[str] = Field(default_factory=gen_uuid, primary_key=True, index=True)
     type: str
-    n: Optional[int] = None
     prompt: str
-    # JSON fields stored as JSONB in Postgres, use default_factory (avoid mutable default)
-    correct_positions: Optional[List[List[int]]] = Field(sa_column=Column(JSONB), default_factory=list)
-    board_lines: Optional[List[str]] = Field(sa_column=Column(JSONB), default_factory=list)
+    # generic JSON field to store payoff matrices, labels etc.
+    data: Optional[Dict[str, Any]] = Field(sa_column=Column(JSONB), default_factory=dict)
     created_at: datetime = Field(default_factory=now_utc)
 
 class Evaluation(SQLModel, table=True):
-    # use integer primary key (autoincrement) — simpler for evaluations
     id: Optional[int] = Field(default=None, primary_key=True)
     question_id: str = Field(foreign_key="question.id", index=True)
     submission_text: Optional[str] = None
