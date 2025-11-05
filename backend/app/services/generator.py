@@ -21,18 +21,8 @@ def _find_pure_nash(payoff: List[List[List[int]]]) -> List[Tuple[int,int]]:
         for j in range(n):
             u_row = payoff[i][j][0]
             u_col = payoff[i][j][1]
-            # row best response to column j?
-            best_for_row = True
-            for k in range(m):
-                if payoff[k][j][0] > u_row:
-                    best_for_row = False
-                    break
-            # column best response to row i?
-            best_for_col = True
-            for l in range(n):
-                if payoff[i][l][1] > u_col:
-                    best_for_col = False
-                    break
+            best_for_row = all(payoff[k][j][0] <= u_row for k in range(m))
+            best_for_col = all(payoff[i][l][1] <= u_col for l in range(n))
             if best_for_row and best_for_col:
                 ne.append((i + 1, j + 1))
     return ne
@@ -47,7 +37,6 @@ def generate_normal_form_question(m: Optional[int] = None,
     Generate a single normal-form game:
       - m x n : if None, picks from default sizes
       - ensure: "any" | "at_least_one" | "none"
-    Returns dict with payoff_matrix, matrix_lines, equilibria (ground truth), id, prompt, labels.
     """
     sizes = [(2,2), (2,3), (3,3), (4,4)]
     if m is None or n is None:
@@ -65,18 +54,11 @@ def generate_normal_form_question(m: Optional[int] = None,
         if ensure == "none" and not ne:
             break
         if attempts >= max_attempts:
-            # fallback: accept current generated instance
             break
 
     qid = str(uuid.uuid4())
     prompt = f"Pentru jocul în formă normală dat în matrice ({m}x{n}), există echilibru Nash pur? Indicați Da/Nu și, dacă Da, precizați unul sau mai multe profile (r,c) 1-based."
-    matrix_lines = []
-    for i in range(m):
-        row_cells = []
-        for j in range(n):
-            u_row, u_col = payoff[i][j]
-            row_cells.append(f"({u_row},{u_col})")
-        matrix_lines.append(" | ".join(row_cells))
+    matrix_lines = [ " | ".join(f"({u[0]},{u[1]})" for u in row) for row in payoff]
 
     return {
         "id": qid,
@@ -93,37 +75,51 @@ def generate_batch(count: int = 1,
                    distribution: Optional[Dict[str, float]] = None,
                    low: int = -5,
                    high: int = 10,
-                   ensure: str = "any") -> List[Dict[str, Any]]:
+                   ensure: str = "any",
+                   target_fraction_no_ne: Optional[float] = None) -> List[Dict[str, Any]]:
     """
-    Generate a batch of questions following a distribution.
-    distribution keys: "2x2", "2x3", "3x3", "4x4" with probabilities (summing to 1 or percents).
-    If distribution is None, use default:
-      50% 2x2, 25% 2x3, 20% 3x3, 5% 4x4
+    Generate a batch of questions.
+    
+    NOU: `target_fraction_no_ne` (float 0.0-1.0) forțează un anumit procent de jocuri FĂRĂ NE.
+    Ex: target_fraction_no_ne=0.5 va genera ~50% jocuri "Nu".
     """
     if distribution is None:
         distribution = {"2x2": 50, "2x3": 25, "3x3": 20, "4x4": 5}
-
-    # normalize weights
-    items = []
-    weights = []
-    for k, v in distribution.items():
-        items.append(k)
-        weights.append(float(v))
+    
+    items, weights = zip(*distribution.items())
     total = sum(weights)
-    if total <= 0:
-        raise ValueError("Invalid distribution weights")
+    if total <= 0: raise ValueError("Invalid distribution weights")
     probs = [w / total for w in weights]
 
-    # sample sizes according to probabilities
-    chosen_sizes = random.choices(items, probs, k=count)
-
     results: List[Dict[str, Any]] = []
+
+    # Logică NOUĂ pentru a forța un mix
+    if target_fraction_no_ne is not None:
+        if not (0.0 <= target_fraction_no_ne <= 1.0):
+            raise ValueError("target_fraction_no_ne must be between 0 and 1")
+        
+        num_none = int(round(count * target_fraction_no_ne))
+        num_with = count - num_none
+
+        for _ in range(num_none):
+            s = random.choices(items, probs, k=1)[0]
+            m, n = map(int, s.split("x"))
+            q = generate_normal_form_question(m=m, n=n, low=low, high=high, ensure="none")
+            results.append(q)
+
+        for _ in range(num_with):
+            s = random.choices(items, probs, k=1)[0]
+            m, n = map(int, s.split("x"))
+            q = generate_normal_form_question(m=m, n=n, low=low, high=high, ensure="at_least_one")
+            results.append(q)
+        
+        random.shuffle(results)
+        return results
+
+    # Logică veche (dacă `target_fraction_no_ne` nu e specificat)
+    chosen_sizes = random.choices(items, probs, k=count)
     for s in chosen_sizes:
-        parts = s.split("x")
-        try:
-            m = int(parts[0]); n = int(parts[1])
-        except Exception:
-            m, n = 2, 2
+        m, n = map(int, s.split("x"))
         q = generate_normal_form_question(m=m, n=n, low=low, high=high, ensure=ensure)
         results.append(q)
     return results
