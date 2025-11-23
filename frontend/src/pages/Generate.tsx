@@ -1,12 +1,14 @@
 import React from "react";
 import { generateQuestions } from "../api";
 
-export default function Generate({ onGenerated, category }: { onGenerated?: () => void, category?: string }) {
+export default function Generate({ onGenerated, category }: { onGenerated?: () => void; category?: string }) {
   const [count, setCount] = React.useState<number>(10);
   const [loading, setLoading] = React.useState(false);
   const [localCategory, setLocalCategory] = React.useState<string>(category ?? "all");
-  // ### NOU: Stare pentru a controla procentul de jocuri fără NE ###
-  const [fractionNoNE, setFractionNoNE] = React.useState<number>(50); // Default 50%
+  const [fractionNoNE, setFractionNoNE] = React.useState<number>(50);
+
+  // sub-type for Nash pur: generated | student_input
+  const [nashSub, setNashSub] = React.useState<"generated" | "student_input">("generated");
 
   React.useEffect(() => {
     if (category) setLocalCategory(category);
@@ -16,22 +18,27 @@ export default function Generate({ onGenerated, category }: { onGenerated?: () =
     e.preventDefault();
     setLoading(true);
     try {
-      // ### MODIFICAT: Construim obiectul de opțiuni ###
-      const options: { ensure?: string; targetFractionNoNe?: number } = {};
-
-      if (localCategory === "nash_pur") {
-        options.ensure = "at_least_one";
-      } else {
-        // Trimitem procentul doar dacă nu forțăm "doar cu NE"
-        options.targetFractionNoNe = fractionNoNE / 100.0; // Convertim procent (0-100) în fracție (0.0-1.0)
+      // CASE: admin wants to create task(s) where student inputs the matrix
+      if (localCategory === "nash_pur" && nashSub === "student_input") {
+        const options: any = { ensure: "at_least_one", save_as: "normal_form_game_custom_student_input" };
+        await generateQuestions(count, options);
+        alert(`${count} task-uri student-input generate cu succes!`);
+        onGenerated && onGenerated();
+        setLoading(false);
+        return;
       }
-      
+
+      // default: generate standard (matrice generată și salvată)
+      const options: any = {};
+      if (localCategory === "nash_pur") options.ensure = "at_least_one";
+      else options.targetFractionNoNe = fractionNoNE / 100.0;
+
       await generateQuestions(count, options);
       alert(`${count} întrebări generate cu succes!`);
       onGenerated && onGenerated();
     } catch (err: any) {
       console.error(err);
-      alert(`Eroare la generare: ${err.message}`);
+      alert(`Eroare: ${err.message || err}`);
     } finally {
       setLoading(false);
     }
@@ -41,28 +48,31 @@ export default function Generate({ onGenerated, category }: { onGenerated?: () =
     <section className="card">
       <h2 style={{ marginTop: 0 }}>Generează întrebări</h2>
       <form onSubmit={onSubmit}>
-        <label>
-          <span>Număr:</span>
-          <input
-            type="number"
-            min={1}
-            value={count}
-            onChange={(e) => setCount(Number(e.target.value))}
-            style={{ width: 80 }}
-          />
+        <label style={{ display: "block", marginBottom: 8 }}>
+          <span style={{ marginRight: 8 }}>Număr:</span>
+          <input type="number" min={1} value={count} onChange={(e) => setCount(Number(e.target.value))} style={{ width: 80 }} />
         </label>
 
-        <label>
-          <span>Tip:</span>
+        <label style={{ display: "block", marginBottom: 8 }}>
+          <span style={{ marginRight: 8 }}>Tip:</span>
           <select value={localCategory} onChange={(e) => setLocalCategory(e.target.value)} disabled={fractionNoNE > 0}>
             <option value="all">Mix (cu și fără NE)</option>
             <option value="nash_pur">Doar cu Nash pur</option>
           </select>
         </label>
 
-        {/* ### NOU: Câmp pentru a seta procentul ### */}
-        <label>
-          <span>Procent Fără NE (%):</span>
+        {localCategory === "nash_pur" && (
+          <label style={{ display: "block", marginBottom: 8 }}>
+            <span style={{ marginRight: 8 }}>Sub-tip Nash:</span>
+            <select value={nashSub} onChange={(e) => setNashSub(e.target.value as any)}>
+              <option value="generated">Generat aleator</option>
+              <option value="student_input">Task (student introduce matricea)</option>
+            </select>
+          </label>
+        )}
+
+        <label style={{ display: "block", marginBottom: 8 }}>
+          <span style={{ marginRight: 8 }}>Procent Fără NE (%):</span>
           <input
             type="number"
             min="0"
@@ -71,17 +81,16 @@ export default function Generate({ onGenerated, category }: { onGenerated?: () =
             value={fractionNoNE}
             onChange={(e) => setFractionNoNE(Number(e.target.value))}
             style={{ width: 80 }}
-            disabled={localCategory === 'nash_pur'}
+            disabled={localCategory === "nash_pur"}
           />
         </label>
 
-        <button type="submit" className="btn btn-primary" disabled={loading}>
-          {loading ? "Se generează..." : "Generează"}
-        </button>
+        <div style={{ marginTop: 10 }}>
+          <button type="submit" className="btn btn-primary" disabled={loading}>
+            {loading ? "Se procesează..." : "Generează/Verifică"}
+          </button>
+        </div>
       </form>
-      <p style={{ marginTop: 8, color: "#666", fontSize: 13 }}>
-        Setează "Procent Fără NE" la 50 pentru un mix echilibrat. Când setezi un procent, opțiunea "Tip" este ignorată.
-      </p>
     </section>
   );
 }

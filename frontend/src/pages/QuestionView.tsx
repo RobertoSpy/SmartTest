@@ -1,37 +1,54 @@
 import React, { useEffect, useState } from "react";
 import { getQuestion, submitAnswer } from "../api";
+import CustomNash from "./NashCustom";
 
+/**
+ * QuestionView rămâne similar dar acum folosește navigation pentru back
+ * (în App.tsx am trimis onBack ca navigate(-1))
+ */
 type PayoffCell = [number, number];
 
 type Question = {
   id: string;
   prompt: string;
+  type?: string;
   data?: {
     matrix_lines?: string[];
     payoff_matrix?: PayoffCell[][];
     row_labels?: string[];
     col_labels?: string[];
+    rows?: number;
+    cols?: number;
+    target_has_pure?: boolean | null;
   };
+  created_at?: string;
 };
 
-export default function QuestionView({ id, onBack }: { id: string, onBack: () => void }) {
+export default function QuestionView({ id, onBack }: { id: string; onBack: () => void }) {
   const [question, setQuestion] = useState<Question | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [hasEquilibrium, setHasEquilibrium] = useState<"da" | "nu" | "">("");
-  const [profilesText, setProfilesText] = useState<string>(""); // fallback free-text
+  const [profilesText, setProfilesText] = useState<string>("");
   const [selectedProfiles, setSelectedProfiles] = useState<string[]>([]);
   const [result, setResult] = useState<any>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const q = await getQuestion(id);
-      setQuestion(q);
-      setLoading(false);
-      setHasEquilibrium("");
-      setProfilesText("");
-      setSelectedProfiles([]);
-      setResult(null);
+      try {
+        const q = await getQuestion(id);
+        setQuestion(q);
+        setHasEquilibrium("");
+        setProfilesText("");
+        setSelectedProfiles([]);
+        setResult(null);
+      } catch (err: any) {
+        console.error(err);
+        alert("Eroare la încărcare: " + (err.message || err));
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, [id]);
@@ -39,6 +56,13 @@ export default function QuestionView({ id, onBack }: { id: string, onBack: () =>
   if (loading) return <div>Loading...</div>;
   if (!question) return <div>Question not found</div>;
 
+  // If this is a student-input custom task, render CustomNash component and exit.
+  // CustomNash will handle building the matrix and submitting JSON to the backend.
+  if (question.type === "normal_form_game_custom_student_input") {
+    return <CustomNash question={question} />;
+  }
+
+  // --- existing view for standard questions (with payoff_matrix provided) ---
   const payoff = question.data?.payoff_matrix;
   const matrixLines = question.data?.matrix_lines;
   const rowLabels = question.data?.row_labels ?? [];
@@ -92,27 +116,31 @@ export default function QuestionView({ id, onBack }: { id: string, onBack: () =>
     );
   }
 
-  function renderTableFromLines() {
-    if (!matrixLines) return null;
-    return (
-      <pre style={{ background: "#fafafa", padding: 8, borderRadius: 4 }}>
-        {matrixLines.join("\n")}
-      </pre>
-    );
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    let submission = "";
 
+    let submission = "";
     if (hasEquilibrium === "da") submission = "Da";
     else if (hasEquilibrium === "nu") submission = "Nu";
 
     const profiles = selectedProfiles.length ? selectedProfiles.join(" ") : profilesText.trim();
     if (profiles) submission += " " + profiles;
 
-    const res = await submitAnswer(question.id, submission);
-    setResult(res);
+    try {
+      setLoading(true);
+      const res = await submitAnswer(question!.id, submission, pdfFile || undefined);
+      setResult(res);
+    } catch (err: any) {
+      console.error(err);
+      alert("Eroare la trimitere: " + (err.message || err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handlePdfChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null;
+    setPdfFile(f);
   }
 
   return (
@@ -126,7 +154,7 @@ export default function QuestionView({ id, onBack }: { id: string, onBack: () =>
       </div>
 
       <div>
-        {payoff ? renderTableFromPayoff() : renderTableFromLines()}
+        {payoff ? renderTableFromPayoff() : matrixLines && <pre style={{ background: "#fafafa", padding: 8, borderRadius: 4 }}>{matrixLines.join("\n")}</pre>}
 
         <form onSubmit={handleSubmit} style={{ marginTop: 16 }}>
           <div style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
@@ -154,6 +182,11 @@ export default function QuestionView({ id, onBack }: { id: string, onBack: () =>
               />
               <div style={{ marginTop: 6, fontSize: 13, color: "#444" }}>
                 Selected: {selectedProfiles.join(", ") || "(none)"}
+              </div>
+
+              <div style={{ marginTop: 8 }}>
+                <label style={{ fontSize: 13, color: "#555" }}>Upload PDF (opțional):</label>
+                <input type="file" accept="application/pdf" onChange={handlePdfChange} />
               </div>
             </div>
 

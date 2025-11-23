@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, SQLModel
-from .routers import questions, agents
+from .routers.nash import questions_nash
+from app.routers.nash.questions_custom_nash import router as questions_custom_router
 
 app = FastAPI(title="SmarTest L6 API")
 
@@ -18,5 +19,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(questions.router, prefix="/api/questions", tags=["questions"])
-app.include_router(agents.router, prefix="/api/agents", tags=["agents"])
+app.include_router(questions_nash.router, prefix="/api/questions", tags=["questions"])
+#app.include_router(agents.router, prefix="/api/agents", tags=["agents"])
+
+# în main.py
+app.include_router(questions_custom_router, prefix="/api/questions_custom", tags=["questions_custom"])
+# acum endpointul de generate custom va fi: /api/questions_custom/generate
