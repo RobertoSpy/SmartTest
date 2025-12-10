@@ -7,13 +7,13 @@ import NashCustom from "./pages/NashCustom";
 import GenerateAll from "./pages/GenerateAll";
 import QuestionsList from "./pages/QuestionsList";
 import QuestionView from "./pages/QuestionView";
-import { generateStudentInputQuestions } from "./api";
+import { generateStudentInputQuestions, generateSearchQuestions } from "./api";
 
 /**
  * Wrapper Home care afișează generatorul corect și lista de întrebări
  * în funcție de ruta (se pune filterType pentru QuestionsList).
  */
-function HomeFrame({ mode }: { mode: "all" | "nash_generated" | "nash_task" }) {
+function HomeFrame({ mode }: { mode: "all" | "nash_generated" | "nash_task" | "search_generated" }) {
   const [refreshKey, setRefreshKey] = React.useState<number>(0);
   const [generating, setGenerating] = React.useState<boolean>(false);
   const [count, setCount] = React.useState<number>(1);
@@ -28,6 +28,7 @@ function HomeFrame({ mode }: { mode: "all" | "nash_generated" | "nash_task" }) {
   let filterType: string | undefined;
   if (mode === "nash_generated") filterType = "normal_form_game";
   else if (mode === "nash_task") filterType = "normal_form_game_custom_student_input";
+  else if (mode === "search_generated") filterType = "search_problem_identification";
 
   // generează folosind endpointul custom care salvează task-uri student_input
   async function generateStudentInputTasks() {
@@ -62,10 +63,39 @@ function HomeFrame({ mode }: { mode: "all" | "nash_generated" | "nash_task" }) {
     }
   }
 
+  async function handleGenerateSearch() {
+    try {
+      setGenerating(true);
+      await generateSearchQuestions(count);
+      setRefreshKey(k => k + 1);
+      alert(`${count} întrebări Search generate.`);
+    } catch (err: any) {
+      console.error(err);
+      alert("Eroare la generare: " + err.message);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   return (
     <>
       {mode === "all" && <GenerateAll onGenerated={() => { /* noop */ }} />}
       {mode === "nash_generated" && <NashGenerated onGenerated={() => { /* noop */ }} />}
+      {mode === "search_generated" && (
+        <div style={{ padding: 12, marginBottom: 12, background: "#fff", borderRadius: 6 }}>
+          <h3 style={{ marginTop: 0 }}>Search Problems</h3>
+          <p>Identifică strategia potrivită pentru probleme de căutare (N-Queens, Graph Coloring, etc).</p>
+          <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12 }}>
+            <label>
+              <div style={{ fontSize: 13 }}>Număr întrebări</div>
+              <input type="number" min={1} value={count} onChange={e => setCount(Math.max(1, Number(e.target.value) || 1))} style={{ width: 80 }} />
+            </label>
+            <button className="btn btn-primary" onClick={handleGenerateSearch} disabled={generating}>
+              {generating ? "Se generează..." : "Generează Search Questions"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {mode === "nash_task" && (
         <div style={{ padding: 12, marginBottom: 12, background: "#fff", borderRadius: 6 }}>
@@ -142,6 +172,7 @@ export default function App() {
           <Route path="/all" element={<HomeFrame mode="all" />} />
           <Route path="/nash/generated" element={<HomeFrame mode="nash_generated" />} />
           <Route path="/nash/task" element={<HomeFrame mode="nash_task" />} />
+          <Route path="/search/generated" element={<HomeFrame mode="search_generated" />} />
           <Route path="/question/:id" element={<QuestionViewRouter />} />
           <Route path="*" element={<Navigate to="/all" replace />} />
         </Routes>
@@ -156,15 +187,18 @@ function Header() {
   const navigate = useNavigate();
 
   // derive current / active labels from location.pathname
+  // DEBUG: Force reload 1
   const path = location.pathname;
   const current =
     path.startsWith("/nash/task") ? "nash_task" :
-    path.startsWith("/nash/generated") ? "nash_generated" :
-    "all";
+      path.startsWith("/nash/generated") ? "nash_generated" :
+        path.startsWith("/search") ? "search" :
+          "all";
 
   function onCategorySelect(cat: string) {
     if (cat === "all") navigate("/all");
     else if (cat === "nash_pur") navigate("/nash/generated");
+    else if (cat === "search") navigate("/search/generated");
   }
 
   function onSubcategorySelect(sub: string) {
@@ -184,7 +218,7 @@ function Header() {
 
         <div style={{ width: 12 }} />
 
-        <CategoryDropdown current={current === "all" ? "all" : "nash_pur"} onSelect={onCategorySelect} />
+        <CategoryDropdown current={current} onSelect={onCategorySelect} />
 
         {(current === "nash_generated" || current === "nash_task") && (
           <div className="category-group" style={{ marginLeft: 8 }}>

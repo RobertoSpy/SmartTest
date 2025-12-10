@@ -8,6 +8,7 @@ export default function QuestionsList({
 }: {
   onOpen?: (id: string) => void;
   filterType?: string;
+  refreshKey?: number;
 }) {
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

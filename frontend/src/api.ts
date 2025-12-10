@@ -62,6 +62,7 @@ export async function getQuestion(id: string) {
   return handleResponse(res);
 }
 
+// Original submitAnswer for Nash/General (legacy?)
 export async function submitAnswer(qid: string, text?: string, pdfFile?: File) {
   const form = new FormData();
   if (text) form.append("submission_text", text);
@@ -69,6 +70,18 @@ export async function submitAnswer(qid: string, text?: string, pdfFile?: File) {
   const res = await fetch(`${API_BASE}/api/questions/${encodeURIComponent(qid)}/submit`, {
     method: "POST",
     body: form,
+  });
+  return handleResponse(res);
+}
+
+export async function submitSearchAnswer(qid: string, text: string) {
+  // Search answers accept a simple JSON body or form, but let's using JSON as per my reproduction script which worked.
+  // Actually the backend endpoint accepts `submission_text: str = Form(...)` BUT also checks for JSON body.
+  // My reproduction works with JSON. Using JSON is cleaner.
+  const res = await fetch(`${API_BASE}/api/questions/search/${encodeURIComponent(qid)}/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ submission_text: text }),
   });
   return handleResponse(res);
 }
@@ -181,8 +194,13 @@ export async function generateStudentInputQuestions(
   if (typeof options?.fixedRows === "number") params.fixed_rows = options.fixedRows;
   if (typeof options?.fixedCols === "number") params.fixed_cols = options.fixedCols;
 
-  // endpoint custom (main.py include_router(..., prefix="/api/questions_custom"))
   const url = `${API_BASE}/api/questions_custom/generate${buildQuery(params)}`;
+  const res = await fetch(url, { method: "POST" });
+  return handleResponse(res);
+}
+
+export async function generateSearchQuestions(count: number) {
+  const url = `${API_BASE}/api/questions/search/generate?count=${count}`;
   const res = await fetch(url, { method: "POST" });
   return handleResponse(res);
 }
@@ -199,4 +217,6 @@ export default {
   validateCustomMatrix,
   createCustomQuestion,
   createStudentInputQuestion,
+  generateSearchQuestions,
+  submitSearchAnswer,
 };

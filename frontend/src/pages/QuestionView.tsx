@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { getQuestion, submitAnswer } from "../api";
 import CustomNash from "./NashCustom";
+import SearchQuestion from "../components/SearchQuestion";
 
 /**
  * QuestionView rămâne similar dar acum folosește navigation pentru back
@@ -57,9 +58,12 @@ export default function QuestionView({ id, onBack }: { id: string; onBack: () =>
   if (!question) return <div>Question not found</div>;
 
   // If this is a student-input custom task, render CustomNash component and exit.
-  // CustomNash will handle building the matrix and submitting JSON to the backend.
   if (question.type === "normal_form_game_custom_student_input") {
     return <CustomNash question={question} />;
+  }
+
+  if (question.type === "search_problem_identification") {
+    return <SearchQuestion question={question} onUpdate={() => setQuestion({ ...question })} />;
   }
 
   // --- existing view for standard questions (with payoff_matrix provided) ---
