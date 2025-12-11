@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Set
-from app.services.nash import generator_custom_nash
+from app.services.nash_custom import generator_custom_nash
 
 # helper: normalize list/tuple like [(r,c), ...] into set of (int,int)
 def _normalize_equilibria(eqs: Optional[Sequence]) -> Set[Tuple[int, int]]:
@@ -85,7 +85,11 @@ def evaluate_custom_submission(
     matched, missing, extra = _eq_sets(computed_eq, claimed_equilibria)
 
     # get target requirement from question data
-    qdata = question if isinstance(question, dict) else getattr(question, "data", {}) or {}
+    if isinstance(question, dict):
+        qdata = question.get("data", {})
+    else:
+        qdata = getattr(question, "data", {}) or {}
+    
     target = qdata.get("target_has_pure", None)  # True | False | None
 
     has_pure = bool(computed_set)

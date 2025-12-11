@@ -20,7 +20,7 @@ export default function CategoryDropdown({
   return (
     <div style={{ position: "relative" }}>
       <button className="btn" onClick={() => setOpen(o => !o)}>
-        Category: {current === "all" ? "Toate" : "Nash pur"}
+        Category: {current === "all" ? "Toate" : (current === "nash_pur" ? "Nash pur" : "Search")}
       </button>
 
       {open && (
@@ -39,6 +39,7 @@ export default function CategoryDropdown({
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <button className="btn" onClick={() => handleSelect("all")}>Toate</button>
             <button className="btn" onClick={() => handleSelect("nash_pur")}>Nash pur</button>
+            <button className="btn" onClick={() => handleSelect("search")}>Search Problems</button>
           </div>
         </div>
       )}

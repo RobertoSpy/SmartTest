@@ -68,7 +68,7 @@ export default function CustomNash({ question }: { question: any }) {
       const claimed = parseClaimedEquilibria(claimedText);
       setSubmitting(true);
       const res = await api.submitCustomMatrix(question.id, submissionMatrix, claimed, claimedText);
-      setResult(res);
+      setResult(res.result);
     } catch (err: any) {
       setError(err?.message || String(err));
     } finally {
@@ -85,8 +85,8 @@ export default function CustomNash({ question }: { question: any }) {
       <div style={{ marginBottom: 12, color: "#666" }}>
         Dimensiune: {rows} x {cols} — Cerință:{" "}
         {targetHasPure === true ? "Să aibă Nash pur" :
-         targetHasPure === false ? "Să NU aibă Nash pur" :
-         "Poate avea sau nu; explicați"}
+          targetHasPure === false ? "Să NU aibă Nash pur" :
+            "Poate avea sau nu; explicați"}
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -103,8 +103,8 @@ export default function CustomNash({ question }: { question: any }) {
                 <th>Row {i + 1}</th>
                 {Array.from({ length: cols }).map((_, j) => (
                   <td key={j}>
-                    <input type="number" placeholder="R" value={matrix[i][j][0]} onChange={(e) => updateCell(i,j,0,e.target.value)} style={{width:60}} />
-                    <input type="number" placeholder="C" value={matrix[i][j][1]} onChange={(e) => updateCell(i,j,1,e.target.value)} style={{width:60, marginLeft:6}} />
+                    <input type="number" placeholder="R" value={matrix[i][j][0]} onChange={(e) => updateCell(i, j, 0, e.target.value)} style={{ width: 60 }} />
+                    <input type="number" placeholder="C" value={matrix[i][j][1]} onChange={(e) => updateCell(i, j, 1, e.target.value)} style={{ width: 60, marginLeft: 6 }} />
                   </td>
                 ))}
               </tr>
@@ -120,7 +120,7 @@ export default function CustomNash({ question }: { question: any }) {
         ) : (
           <div style={{ marginTop: 12 }}>
             <label>Declarați echilibria (opțional), ex: "(1,1) (2,2)"</label>
-            <textarea value={claimedText} onChange={(e) => setClaimedText(e.target.value)} rows={2} style={{width:"100%"}} />
+            <textarea value={claimedText} onChange={(e) => setClaimedText(e.target.value)} rows={2} style={{ width: "100%" }} />
             <div style={{ fontSize: 12, color: "#666", marginTop: 6 }}>
               Observație: dacă nu indicați echilibria când sunt așteptate, primiți credit parțial (75%) dacă matricea e corectă.
             </div>
@@ -135,20 +135,59 @@ export default function CustomNash({ question }: { question: any }) {
       {error && <div style={{ color: "red", marginTop: 12 }}>{error}</div>}
 
       {result && (
-        <div style={{ marginTop: 12 }}>
-          <h3>Rezultat: {result.score_percent}%</h3>
-          <div style={{ color: "#333", marginBottom: 8 }}>{result.explanation}</div>
-          <pre style={{ whiteSpace: "pre-wrap", background: "#f7f7f7", padding: 10 }}>{JSON.stringify(result.result ?? result, null, 2)}</pre>
+        <div style={{ marginTop: 24, padding: 16, border: "1px solid #ddd", borderRadius: 8, backgroundColor: "#f9f9f9" }}>
+
+          <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
+            <h3 style={{ margin: 0, marginRight: 12 }}>Rezultat: {result.score_percent}%</h3>
+            {result.correct ?
+              <span style={{ color: "green", fontWeight: "bold" }}>Corect!</span> :
+              <span style={{ color: "red", fontWeight: "bold" }}>Incomplet sau Incorect</span>
+            }
+          </div>
+
+          <div style={{ fontSize: 16, marginBottom: 16 }}>
+            <strong>Nota:</strong> {result.explanation}
+          </div>
+
+          <hr style={{ border: "none", borderTop: "1px solid #eee", margin: "12px 0" }} />
+
+          {/* Justification / Analysis */}
+          {result.result?.justification && (
+            <div style={{ marginBottom: 16 }}>
+              <strong style={{ display: "block", marginBottom: 4 }}>Analiză:</strong>
+              {result.result.justification.split("\n").map((line: string, idx: number) => (
+                <div key={idx} style={{ marginBottom: 2 }}>{line}</div>
+              ))}
+            </div>
+          )}
+
+          {/* Found Equilibria */}
+          {result.result?.equilibria && (
+            <div style={{ marginBottom: 12 }}>
+              <strong>Echilibria calculate de sistem: </strong>
+              {result.result.equilibria.length > 0 ? (
+                <span>
+                  {result.result.equilibria.map((e: any) => `(${e[0]},${e[1]})`).join(", ")}
+                </span>
+              ) : (
+                <span style={{ color: "#666" }}>Niciunul</span>
+              )}
+            </div>
+          )}
+
+          {/* Feedback on claimed vs actual */}
           {result.missing && result.missing.length > 0 && (
-            <div style={{ color: "#c33", marginTop: 8 }}>
-              Lipsesc echilibria: {JSON.stringify(result.missing)}
+            <div style={{ color: "#d32f2f", marginTop: 8, fontWeight: 500 }}>
+              ⚠ Ți-au scăpat echilibrile: {result.missing.map((e: any) => `(${e[0]},${e[1]})`).join(", ")}
             </div>
           )}
           {result.extra && result.extra.length > 0 && (
-            <div style={{ color: "#c33", marginTop: 8 }}>
-              Ai indicat echilibria inexistent(e): {JSON.stringify(result.extra)}
+            <div style={{ color: "#d32f2f", marginTop: 8, fontWeight: 500 }}>
+              ⚠ Ai indicat greșit: {result.extra.map((e: any) => `(${e[0]},${e[1]})`).join(", ")}
             </div>
           )}
+
+          {/* Debug toggle could go here if needed, keeping it minimal for now */}
         </div>
       )}
     </section>

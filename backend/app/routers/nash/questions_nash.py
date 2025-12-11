@@ -133,26 +133,32 @@ async def submit_answer(
             from app.services.nash_custom.evaluator_custom_nash import evaluate_custom_submission
 
             q_json = json.loads(q.json())
-            eval_res = evaluate_custom_submission(
-                q_json,
-                submission_matrix=submission_matrix,
-                claimed_equilibria=claimed_equilibria,
-                submission_text=submission_text_body,
-            )
+            try:
+                eval_res = evaluate_custom_submission(
+                    q_json,
+                    submission_matrix=submission_matrix,
+                    claimed_equilibria=claimed_equilibria,
+                    submission_text=submission_text_body,
+                )
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+
+            # extract inner result
+            inner_res = eval_res.get("result", {})
 
             # persist evaluation
             meta_dict = {
-                "computed_has": eval_res.get("computed_has"),
-                "computed_equilibria": eval_res.get("computed_equilibria"),
-                "matched_equilibria": eval_res.get("matched_equilibria"),
-                "missing_equilibria": eval_res.get("missing_equilibria"),
-                "extra_equilibria": eval_res.get("extra_equilibria"),
-                "note": eval_res.get("note"),
+                "computed_has": inner_res.get("has_pure_nash"),
+                "computed_equilibria": inner_res.get("equilibria"),
+                "matched_equilibria": eval_res.get("matched"),
+                "missing_equilibria": eval_res.get("missing"),
+                "extra_equilibria": eval_res.get("extra"),
+                "note": eval_res.get("explanation"),
             }
             eval_record = Evaluation(
                 question_id=q.id,
                 submission_text=submission_text_body,
-                submission_positions=eval_res.get("matched_equilibria", []),
+                submission_positions=eval_res.get("matched", []),
                 score_percent=eval_res.get("score_percent", 0),
                 meta=meta_dict,
             )

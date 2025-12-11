@@ -35,8 +35,8 @@ services:
       context: ./frontend
     command: npm run dev -- --host 0.0.0.0
     volumes:
-      - ./frontend:/app/frontend
-      - /app/frontend/node_modules
+      - ./frontend:/app
+      - /app/node_modules
     env_file:
       - .env
     environment:
