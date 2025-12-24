@@ -205,6 +205,30 @@ export async function generateSearchQuestions(count: number) {
   return handleResponse(res);
 }
 
+export const solveCSP = async (data: any) => {
+  try {
+    const response = await fetch(`${API_BASE}/csp/solve`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error while solving CSP:', error);
+    throw error;  // Aruncă eroarea pentru a putea fi gestionată de componenta front-end
+  }
+};
+
+
+
 export default {
   API_BASE,
   generateQuestions,
@@ -219,4 +243,5 @@ export default {
   createStudentInputQuestion,
   generateSearchQuestions,
   submitSearchAnswer,
+  solveCSP,
 };

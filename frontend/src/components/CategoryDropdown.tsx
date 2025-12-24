@@ -40,6 +40,7 @@ export default function CategoryDropdown({
             <button className="btn" onClick={() => handleSelect("all")}>Toate</button>
             <button className="btn" onClick={() => handleSelect("nash_pur")}>Nash pur</button>
             <button className="btn" onClick={() => handleSelect("search")}>Search Problems</button>
+            <button className="btn" onClick={() => handleSelect("csp")}>Csp</button>
           </div>
         </div>
       )}

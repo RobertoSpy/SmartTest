@@ -8,6 +8,7 @@ import GenerateAll from "./pages/GenerateAll";
 import QuestionsList from "./pages/QuestionsList";
 import QuestionView from "./pages/QuestionView";
 import { generateStudentInputQuestions, generateSearchQuestions } from "./api";
+import CSPPoint3 from "./pages/Csp";
 
 /**
  * Wrapper Home care afișează generatorul corect și lista de întrebări
@@ -175,6 +176,7 @@ export default function App() {
           <Route path="/search/generated" element={<HomeFrame mode="search_generated" />} />
           <Route path="/question/:id" element={<QuestionViewRouter />} />
           <Route path="*" element={<Navigate to="/all" replace />} />
+          <Route path="/csp" element={<CSPPoint3 />} />
         </Routes>
       </main>
     </BrowserRouter>
@@ -193,12 +195,14 @@ function Header() {
     path.startsWith("/nash/task") ? "nash_task" :
       path.startsWith("/nash/generated") ? "nash_generated" :
         path.startsWith("/search") ? "search" :
+          path.startsWith("/csp") ? "csp" :
           "all";
 
   function onCategorySelect(cat: string) {
     if (cat === "all") navigate("/all");
     else if (cat === "nash_pur") navigate("/nash/generated");
     else if (cat === "search") navigate("/search/generated");
+    else if (cat === "csp") navigate("/csp");
   }
 
   function onSubcategorySelect(sub: string) {

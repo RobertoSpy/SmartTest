@@ -4,6 +4,7 @@ from .database import engine, SQLModel
 from .routers.nash import questions_nash
 from app.routers.search import questions_search
 from app.routers.nash.questions_custom_nash import router as questions_custom_router
+from app.routers.csp import csp
 
 app = FastAPI(title="SmarTest L6 API")
 
@@ -27,3 +28,5 @@ app.include_router(questions_search.router, prefix="/api/questions/search", tags
 # în main.py
 app.include_router(questions_custom_router, prefix="/api/questions_custom", tags=["questions_custom"])
 # acum endpointul de generate custom va fi: /api/questions_custom/generate
+
+app.include_router(csp.router)
