@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api from "../api";
+import NeonButton from "../components/ui/NeonButton";
+import GlassCard from "../components/ui/GlassCard";
 
 export default function CustomNash({ question }: { question: any }) {
   const rows = question?.data?.rows || question?.data?.row_labels?.length || 2;
@@ -49,7 +51,7 @@ export default function CustomNash({ question }: { question: any }) {
         const r = parseInt(rStr, 10);
         const c = parseInt(cStr, 10);
         if (Number.isNaN(r) || Number.isNaN(c)) {
-          throw new Error(`Celula ${i + 1},${j + 1} are valori invalide`);
+          throw new Error(`Cell ${i + 1},${j + 1} has invalid values`);
         }
         rowVals.push([r, c]);
       }
@@ -64,7 +66,6 @@ export default function CustomNash({ question }: { question: any }) {
     setResult(null);
     try {
       const submissionMatrix = buildSubmissionMatrix();
-      // if task target is NO NASH, we don't need claimed equilibria; parseClaimedEquilibria will return undefined if empty
       const claimed = parseClaimedEquilibria(claimedText);
       setSubmitting(true);
       const res = await api.submitCustomMatrix(question.id, submissionMatrix, claimed, claimedText);
@@ -76,120 +77,173 @@ export default function CustomNash({ question }: { question: any }) {
     }
   }
 
-  // convenience boolean
   const targetHasPure = question?.data?.target_has_pure;
 
   return (
-    <section>
-      <h2>{question.prompt}</h2>
-      <div style={{ marginBottom: 12, color: "#666" }}>
-        Dimensiune: {rows} x {cols} — Cerință:{" "}
-        {targetHasPure === true ? "Să aibă Nash pur" :
-          targetHasPure === false ? "Să NU aibă Nash pur" :
-            "Poate avea sau nu; explicați"}
+    <div style={{ animation: 'fadeIn 0.5s ease' }}>
+      <h2 className="text-gradient" style={{ marginTop: 0 }}>{question.prompt}</h2>
+      <div style={{ marginBottom: 20, color: "var(--text-secondary)", fontSize: '0.9rem' }}>
+        Dimensions: {rows} x {cols} — Requirement:{" "}
+        <span style={{ color: 'var(--neon-cyan)', fontWeight: 600 }}>
+          {targetHasPure === true ? "Must have Pure Nash" :
+            targetHasPure === false ? "Must NOT have Pure Nash" :
+              "Can have or not (explain)"}
+        </span>
       </div>
 
       <form onSubmit={handleSubmit}>
-        <table style={{ borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th></th>
-              {Array.from({ length: cols }).map((_, j) => <th key={j}>Col {j + 1}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {Array.from({ length: rows }).map((_, i) => (
-              <tr key={i}>
-                <th>Row {i + 1}</th>
+        <div style={{ overflowX: 'auto', marginBottom: '20px' }}>
+          <table style={{ borderCollapse: "separate", borderSpacing: "8px" }}>
+            <thead>
+              <tr>
+                <th></th>
                 {Array.from({ length: cols }).map((_, j) => (
-                  <td key={j}>
-                    <input type="number" placeholder="R" value={matrix[i][j][0]} onChange={(e) => updateCell(i, j, 0, e.target.value)} style={{ width: 60 }} />
-                    <input type="number" placeholder="C" value={matrix[i][j][1]} onChange={(e) => updateCell(i, j, 1, e.target.value)} style={{ width: 60, marginLeft: 6 }} />
-                  </td>
+                  <th key={j} style={{ color: 'var(--text-secondary)', fontWeight: 500, paddingBottom: 8 }}>Col {j + 1}</th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {Array.from({ length: rows }).map((_, i) => (
+                <tr key={i}>
+                  <th style={{ color: 'var(--text-secondary)', fontWeight: 500, paddingRight: 12 }}>Row {i + 1}</th>
+                  {Array.from({ length: cols }).map((_, j) => (
+                    <td key={j}>
+                      <div style={{
+                        display: 'flex',
+                        background: 'rgba(255,255,255,0.05)',
+                        padding: '6px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255,255,255,0.1)'
+                      }}>
+                        <input
+                          type="number"
+                          placeholder="R"
+                          value={matrix[i][j][0]}
+                          onChange={(e) => updateCell(i, j, 0, e.target.value)}
+                          style={{
+                            width: 50,
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--neon-red)',
+                            borderBottom: '1px solid rgba(255,255,255,0.1)',
+                            textAlign: 'center'
+                          }}
+                        />
+                        <div style={{ width: 1, background: 'rgba(255,255,255,0.1)', margin: '0 4px' }}></div>
+                        <input
+                          type="number"
+                          placeholder="C"
+                          value={matrix[i][j][1]}
+                          onChange={(e) => updateCell(i, j, 1, e.target.value)}
+                          style={{
+                            width: 50,
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--neon-blue)',
+                            borderBottom: '1px solid rgba(255,255,255,0.1)',
+                            textAlign: 'center'
+                          }}
+                        />
+                      </div>
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-        {/* If target is explicitly "no Nash", hide the claimed equilibria input */}
         {targetHasPure === false ? (
-          <div style={{ marginTop: 12, color: "#333" }}>
-            <em>Acest task cere o matrice fără Nash pur — nu e nevoie să indici echilibria.</em>
+          <div style={{ marginTop: 12, color: "var(--text-secondary)", fontStyle: 'italic' }}>
+            Target is NO Pure Nash — no need to declare equilibria.
           </div>
         ) : (
           <div style={{ marginTop: 12 }}>
-            <label>Declarați echilibria (opțional), ex: "(1,1) (2,2)"</label>
-            <textarea value={claimedText} onChange={(e) => setClaimedText(e.target.value)} rows={2} style={{ width: "100%" }} />
-            <div style={{ fontSize: 12, color: "#666", marginTop: 6 }}>
-              Observație: dacă nu indicați echilibria când sunt așteptate, primiți credit parțial (75%) dacă matricea e corectă.
+            <label style={{ display: 'block', marginBottom: 8, color: 'var(--text-secondary)' }}>Declare Equilibria (Optional), e.g., "(1,1) (2,2)"</label>
+            <textarea
+              value={claimedText}
+              onChange={(e) => setClaimedText(e.target.value)}
+              rows={2}
+              style={{
+                width: "100%",
+                background: '#1e293b',
+                border: '1px solid #334155',
+                color: '#fff',
+                borderRadius: '8px',
+                padding: '12px'
+              }}
+            />
+            <div style={{ fontSize: '0.8rem', color: "#666", marginTop: 6 }}>
+              Note: Unclaimed equilibria (when expected) result in partial credit (75%).
             </div>
           </div>
         )}
 
-        <div style={{ marginTop: 12 }}>
-          <button type="submit" disabled={submitting}>{submitting ? "Se trimite..." : "Trimite matricea"}</button>
+        <div style={{ marginTop: 24 }}>
+          <NeonButton type="submit" disabled={submitting} glow>
+            {submitting ? "Sending..." : "Submit Matrix"}
+          </NeonButton>
         </div>
       </form>
 
-      {error && <div style={{ color: "red", marginTop: 12 }}>{error}</div>}
+      {error && <GlassCard style={{ marginTop: 20, borderColor: 'var(--neon-red)', background: 'rgba(239, 68, 68, 0.1)' }}>{error}</GlassCard>}
 
       {result && (
-        <div style={{ marginTop: 24, padding: 16, border: "1px solid #ddd", borderRadius: 8, backgroundColor: "#f9f9f9" }}>
-
+        <GlassCard
+          style={{
+            marginTop: 24,
+            borderColor: result.correct ? 'var(--neon-green)' : 'var(--neon-red)',
+            background: result.correct ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.05)'
+          }}
+        >
           <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-            <h3 style={{ margin: 0, marginRight: 12 }}>Rezultat: {result.score_percent}%</h3>
+            <h3 style={{ margin: 0, marginRight: 12, color: '#fff' }}>Result: <span className={result.correct ? 'text-green-400' : 'text-red-400'}>{result.score_percent}%</span></h3>
             {result.correct ?
-              <span style={{ color: "green", fontWeight: "bold" }}>Corect!</span> :
-              <span style={{ color: "red", fontWeight: "bold" }}>Incomplet sau Incorect</span>
+              <span style={{ color: "var(--neon-green)", fontWeight: "bold" }}>Correct!</span> :
+              <span style={{ color: "var(--neon-red)", fontWeight: "bold" }}>Incomplete or Incorrect</span>
             }
           </div>
 
-          <div style={{ fontSize: 16, marginBottom: 16 }}>
-            <strong>Nota:</strong> {result.explanation}
+          <div style={{ fontSize: '1rem', marginBottom: 16 }}>
+            <strong>Note:</strong> {result.explanation}
           </div>
 
-          <hr style={{ border: "none", borderTop: "1px solid #eee", margin: "12px 0" }} />
+          <hr style={{ border: "none", borderTop: "1px solid rgba(255,255,255,0.1)", margin: "12px 0" }} />
 
-          {/* Justification / Analysis */}
           {result.result?.justification && (
             <div style={{ marginBottom: 16 }}>
-              <strong style={{ display: "block", marginBottom: 4 }}>Analiză:</strong>
+              <strong style={{ display: "block", marginBottom: 4, color: 'var(--neon-cyan)' }}>Analysis:</strong>
               {result.result.justification.split("\n").map((line: string, idx: number) => (
-                <div key={idx} style={{ marginBottom: 2 }}>{line}</div>
+                <div key={idx} style={{ marginBottom: 2, color: 'var(--text-secondary)' }}>{line}</div>
               ))}
             </div>
           )}
 
-          {/* Found Equilibria */}
           {result.result?.equilibria && (
             <div style={{ marginBottom: 12 }}>
-              <strong>Echilibria calculate de sistem: </strong>
+              <strong style={{ color: 'var(--neon-cyan)' }}>System Calculated Equilibria: </strong>
               {result.result.equilibria.length > 0 ? (
-                <span>
+                <span className="text-white font-mono">
                   {result.result.equilibria.map((e: any) => `(${e[0]},${e[1]})`).join(", ")}
                 </span>
               ) : (
-                <span style={{ color: "#666" }}>Niciunul</span>
+                <span style={{ color: "var(--text-secondary)" }}>None</span>
               )}
             </div>
           )}
 
-          {/* Feedback on claimed vs actual */}
           {result.missing && result.missing.length > 0 && (
-            <div style={{ color: "#d32f2f", marginTop: 8, fontWeight: 500 }}>
-              ⚠ Ți-au scăpat echilibrile: {result.missing.map((e: any) => `(${e[0]},${e[1]})`).join(", ")}
+            <div style={{ color: "var(--neon-red)", marginTop: 8, fontWeight: 500 }}>
+              ⚠ Missed: {result.missing.map((e: any) => `(${e[0]},${e[1]})`).join(", ")}
             </div>
           )}
           {result.extra && result.extra.length > 0 && (
-            <div style={{ color: "#d32f2f", marginTop: 8, fontWeight: 500 }}>
-              ⚠ Ai indicat greșit: {result.extra.map((e: any) => `(${e[0]},${e[1]})`).join(", ")}
+            <div style={{ color: "var(--neon-red)", marginTop: 8, fontWeight: 500 }}>
+              ⚠ Incorrectly Claimed: {result.extra.map((e: any) => `(${e[0]},${e[1]})`).join(", ")}
             </div>
           )}
-
-          {/* Debug toggle could go here if needed, keeping it minimal for now */}
-        </div>
+        </GlassCard>
       )}
-    </section>
+    </div>
   );
 }

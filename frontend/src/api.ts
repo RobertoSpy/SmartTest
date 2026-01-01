@@ -223,9 +223,31 @@ export const solveCSP = async (data: any) => {
     return result;
   } catch (error) {
     console.error('Error while solving CSP:', error);
-    throw error;  // Aruncă eroarea pentru a putea fi gestionată de componenta front-end
+    throw error;
   }
 };
+
+export async function generateMinMaxQuestion(difficulty: string = "easy") {
+  const res = await fetch(`${API_BASE}/api/questions/minmax/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ difficulty }),
+  });
+  return handleResponse(res);
+}
+
+export async function submitMinMaxAnswer(tree: any, rootValue: number, visitedLeaves: number) {
+  const res = await fetch(`${API_BASE}/api/questions/minmax/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      tree,
+      root_value: rootValue,
+      visited_leaves: visitedLeaves
+    }),
+  });
+  return handleResponse(res);
+}
 
 
 
@@ -244,4 +266,6 @@ export default {
   generateSearchQuestions,
   submitSearchAnswer,
   solveCSP,
+  generateMinMaxQuestion,
+  submitMinMaxAnswer,
 };

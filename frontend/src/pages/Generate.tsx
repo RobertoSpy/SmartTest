@@ -86,7 +86,24 @@ export default function Generate({ onGenerated, category }: { onGenerated?: () =
         </label>
 
         <div style={{ marginTop: 10 }}>
-          <button type="submit" className="btn btn-primary" disabled={loading}>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              background: '#ea580c',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '12px 24px',
+              fontSize: '1rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'background 0.2s',
+              opacity: loading ? 0.7 : 1
+            }}
+            onMouseOver={(e) => e.currentTarget.style.background = '#c2410c'}
+            onMouseOut={(e) => e.currentTarget.style.background = '#ea580c'}
+          >
             {loading ? "Se procesează..." : "Generează/Verifică"}
           </button>
         </div>

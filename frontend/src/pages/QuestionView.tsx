@@ -2,11 +2,11 @@ import React, { useEffect, useState } from "react";
 import { getQuestion, submitAnswer } from "../api";
 import CustomNash from "./NashCustom";
 import SearchQuestion from "../components/SearchQuestion";
+import { useNavigate } from "react-router-dom";
+import GlassCard from "../components/ui/GlassCard";
+import NeonButton from "../components/ui/NeonButton";
+import { ArrowLeft, RefreshCw, Upload } from "lucide-react";
 
-/**
- * QuestionView rămâne similar dar acum folosește navigation pentru back
- * (în App.tsx am trimis onBack ca navigate(-1))
- */
 type PayoffCell = [number, number];
 
 type Question = {
@@ -45,8 +45,7 @@ export default function QuestionView({ id, onBack }: { id: string; onBack: () =>
         setSelectedProfiles([]);
         setResult(null);
       } catch (err: any) {
-        console.error(err);
-        alert("Eroare la încărcare: " + (err.message || err));
+        alert("Error loading question: " + (err.message || err));
       } finally {
         setLoading(false);
       }
@@ -54,19 +53,46 @@ export default function QuestionView({ id, onBack }: { id: string; onBack: () =>
     load();
   }, [id]);
 
-  if (loading) return <div>Loading...</div>;
-  if (!question) return <div>Question not found</div>;
+  if (loading) return (
+    <div style={{ display: 'flex', justifyContent: 'center', padding: 40, color: 'var(--neon-orange)' }}>
+      Loading...
+    </div>
+  );
 
-  // If this is a student-input custom task, render CustomNash component and exit.
+  if (!question) return <div style={{ padding: 40, color: 'var(--neon-orange)' }}>Question not found</div>;
+
+  // Delegates
   if (question.type === "normal_form_game_custom_student_input") {
-    return <CustomNash question={question} />;
+    return (
+      <GlassCard>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: 20 }}>
+            <NeonButton onClick={onBack} variant="primary">
+              <ArrowLeft size={16} /> Back
+            </NeonButton>
+          </div>
+        </div>
+        <CustomNash question={question} />
+      </GlassCard>
+    );
   }
 
   if (question.type === "search_problem_identification") {
-    return <SearchQuestion question={question} onUpdate={() => setQuestion({ ...question })} />;
+    return (
+      <GlassCard>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: 20 }}>
+            <NeonButton onClick={onBack} variant="primary">
+              <ArrowLeft size={16} /> Back
+            </NeonButton>
+          </div>
+        </div>
+        <SearchQuestion question={question} onUpdate={() => setQuestion({ ...question })} />
+      </GlassCard>
+    );
   }
 
-  // --- existing view for standard questions (with payoff_matrix provided) ---
+  // --- Standard View ---
   const payoff = question.data?.payoff_matrix;
   const matrixLines = question.data?.matrix_lines;
   const rowLabels = question.data?.row_labels ?? [];
@@ -83,32 +109,42 @@ export default function QuestionView({ id, onBack }: { id: string; onBack: () =>
   function renderTableFromPayoff() {
     if (!payoff) return null;
     return (
-      <div className="payoff-wrap">
-        <table className="payoff-table" aria-label="payoff table">
+      <div style={{ overflowX: 'auto', margin: '20px 0', background: '#f8fafc', padding: 20, borderRadius: 12 }}>
+        <table style={{ borderCollapse: "separate", borderSpacing: "12px", margin: "0 auto" }}>
           <thead>
             <tr>
               <th></th>
               {colLabels.map((c, j) => (
-                <th key={j}>{c}</th>
+                <th key={j} style={{ color: '#64748b', fontWeight: 600, paddingBottom: 8 }}>{c}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {payoff.map((row, i) => (
               <tr key={i}>
-                <td className="strategy-label">{rowLabels[i] ?? `R${i + 1}`}</td>
+                <td style={{ color: '#64748b', fontWeight: 600, paddingRight: 10 }}>{rowLabels[i] ?? `R${i + 1}`}</td>
                 {row.map((cell, j) => {
                   const key = `(${i + 1},${j + 1})`;
                   const selected = selectedProfiles.includes(key);
                   return (
                     <td
                       key={j}
-                      className={`cell ${selected ? "selected" : ""}`}
                       onClick={() => toggleCell(i, j)}
-                      title={`Click pentru a marca ca profil: ${key}`}
+                      style={{
+                        background: selected ? '#fff7ed' : '#ffffff',
+                        border: selected ? '2px solid #ea580c' : '2px solid #e2e8f0',
+                        borderRadius: '12px',
+                        padding: '16px 24px',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        transition: 'all 0.2s ease',
+                        minWidth: '90px',
+                        boxShadow: selected ? '0 4px 12px rgba(234, 88, 12, 0.1)' : '0 2px 4px rgba(0,0,0,0.02)'
+                      }}
                     >
-                      <div className="payoff">({cell[0]}, {cell[1]})</div>
-                      <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>{key}</div>
+                      <div style={{ fontWeight: 700, color: '#334155', fontSize: '1.2rem', display: 'flex', gap: 6, justifyContent: 'center' }}>
+                        <span style={{ color: '#ea580c' }}>{cell[0]}</span>, <span style={{ color: '#475569' }}>{cell[1]}</span>
+                      </div>
                     </td>
                   );
                 })}
@@ -135,8 +171,7 @@ export default function QuestionView({ id, onBack }: { id: string; onBack: () =>
       const res = await submitAnswer(question!.id, submission, pdfFile || undefined);
       setResult(res);
     } catch (err: any) {
-      console.error(err);
-      alert("Eroare la trimitere: " + (err.message || err));
+      alert("Error submitting: " + (err.message || err));
     } finally {
       setLoading(false);
     }
@@ -148,66 +183,93 @@ export default function QuestionView({ id, onBack }: { id: string; onBack: () =>
   }
 
   return (
-    <div className="card" style={{ maxWidth: 1000, margin: "0 auto", padding: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <h3 style={{ margin: 0 }}>{question.prompt}</h3>
-        <div>
-          <button className="btn" onClick={onBack} style={{ marginRight: 8 }}>Înapoi</button>
-          <button className="btn btn-ghost" onClick={() => window.location.reload()}>Reîncarcă</button>
-        </div>
+    <GlassCard>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <NeonButton onClick={onBack} variant="primary">
+          <ArrowLeft size={16} /> Back
+        </NeonButton>
+        <NeonButton onClick={() => window.location.reload()} variant="ghost" style={{ color: '#333' }}>
+          <RefreshCw size={16} /> Reload
+        </NeonButton>
       </div>
 
-      <div>
-        {payoff ? renderTableFromPayoff() : matrixLines && <pre style={{ background: "#fafafa", padding: 8, borderRadius: 4 }}>{matrixLines.join("\n")}</pre>}
+      <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: '#ea580c', marginBottom: 20 }}>
+        {question.prompt}
+      </h3>
 
-        <form onSubmit={handleSubmit} style={{ marginTop: 16 }}>
-          <div style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
-            <div>
-              <label style={{ marginRight: 12 }}>
-                <input type="radio" name="has" value="da" checked={hasEquilibrium === "da"} onChange={() => setHasEquilibrium("da")} />
-                {" "}Da
-              </label>
-              <label>
-                <input type="radio" name="has" value="nu" checked={hasEquilibrium === "nu"} onChange={() => setHasEquilibrium("nu")} />
-                {" "}Nu
-              </label>
-            </div>
+      {payoff ? renderTableFromPayoff() : matrixLines && <pre style={{ background: "#f1f5f9", padding: 12, borderRadius: 8, color: "#334155", fontStyle: 'italic' }}>{matrixLines.join("\n")}</pre>}
 
-            <div style={{ flex: 1, minWidth: 260 }}>
-              <label style={{ display: "block", marginBottom: 6, color: "#333", fontSize: 14 }}>
-                Profile (poți click pe celule pentru a le selecta; sau scrie manual):
-              </label>
+      <form onSubmit={handleSubmit} style={{ marginTop: 24, borderTop: '1px solid #f1f5f9', paddingTop: 24 }}>
+        <div style={{ display: "flex", flexDirection: 'column', gap: 20 }}>
+
+          <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
+            <span style={{ color: '#64748b', fontWeight: 600 }}>Pure Equilibrium?</span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: '#333' }}>
+              <input type="radio" name="has" value="da" checked={hasEquilibrium === "da"} onChange={() => setHasEquilibrium("da")} style={{ accentColor: '#ea580c', width: 16, height: 16 }} />
+              <span>Yes</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: '#333' }}>
+              <input type="radio" name="has" value="nu" checked={hasEquilibrium === "nu"} onChange={() => setHasEquilibrium("nu")} style={{ accentColor: '#ea580c', width: 16, height: 16 }} />
+              <span>No</span>
+            </label>
+          </div>
+
+          <div>
+            <label style={{ display: "block", marginBottom: 8, color: "#64748b", fontSize: "0.9rem" }}>
+              Identified Profiles (Click cells or type):
+            </label>
+            <div style={{ display: 'flex', gap: 12 }}>
               <input
                 type="text"
                 value={profilesText}
                 onChange={(e) => setProfilesText(e.target.value)}
-                placeholder="(1,2) (2,1) sau 1,2;2,1"
-                style={{ width: "100%", padding: "8px 10px", borderRadius: 4, border: "1px solid #ccc" }}
+                placeholder="(1,2) (2,1)..."
+                style={{
+                  flex: 1,
+                  padding: "12px",
+                  borderRadius: 8,
+                  border: "1px solid #cbd5e1",
+                }}
               />
-              <div style={{ marginTop: 6, fontSize: 13, color: "#444" }}>
-                Selected: {selectedProfiles.join(", ") || "(none)"}
-              </div>
-
-              <div style={{ marginTop: 8 }}>
-                <label style={{ fontSize: 13, color: "#555" }}>Upload PDF (opțional):</label>
-                <input type="file" accept="application/pdf" onChange={handlePdfChange} />
-              </div>
+              <NeonButton type="submit" disabled={loading} glow variant="primary">Submit</NeonButton>
             </div>
-
-            <div style={{ display: "flex", gap: 8 }}>
-              <button type="submit" className="btn btn-primary">Trimite</button>
+            <div style={{ marginTop: 6, fontSize: "0.85rem", color: "#ea580c" }}>
+              Selected: {selectedProfiles.join(", ") || "—"}
             </div>
           </div>
-        </form>
 
-        {result && (
-          <div className="result-box">
-            <div className="score">Scor: {result.result?.score_percent ?? result.score_percent ?? "—"}%</div>
-            <div><strong>Feedback:</strong> {result.result?.note ?? result.note ?? ""}</div>
-            <pre style={{ marginTop: 8, whiteSpace: "pre-wrap" }}>{JSON.stringify(result.result ?? result, null, 2)}</pre>
+          <div>
+            <label style={{ fontSize: "0.9rem", color: "#64748b", display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', width: 'fit-content' }}>
+              <Upload size={16} /> Upload PDF (Optional)
+              <input type="file" accept="application/pdf" onChange={handlePdfChange} style={{ display: 'none' }} />
+            </label>
+            {pdfFile && <div style={{ fontSize: '0.8rem', marginTop: 4, color: '#333' }}>File: {pdfFile.name}</div>}
           </div>
-        )}
-      </div>
-    </div>
+
+        </div>
+      </form>
+
+      {result && (
+        <div
+          style={{
+            marginTop: 24,
+            padding: 16,
+            borderRadius: 12,
+            border: result.result?.score_percent === 100 ? '1px solid #22c55e' : '1px solid #ef4444',
+            background: result.result?.score_percent === 100 ? '#f0fdf4' : '#fef2f2'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: result.result?.score_percent === 100 ? '#15803d' : '#b91c1c' }}>
+              Score: {result.result?.score_percent ?? result.score_percent ?? "—"}%
+            </div>
+            <div><strong style={{ color: '#475569' }}>Feedback:</strong> <span style={{ color: '#333' }}>{result.result?.note ?? result.note ?? ""}</span></div>
+          </div>
+          <pre style={{ marginTop: 12, whiteSpace: "pre-wrap", background: '#ffffff', padding: 12, borderRadius: 8, fontSize: '0.85rem', color: '#334155', border: '1px solid #e2e8f0' }}>
+            {JSON.stringify(result.result ?? result, null, 2)}
+          </pre>
+        </div>
+      )}
+    </GlassCard>
   );
 }

@@ -1,249 +1,142 @@
 import React from "react";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
 import "./App.css";
-import CategoryDropdown from "./components/CategoryDropdown";
-import NashGenerated from "./pages/NashGenerated";
+import Layout from "./components/Layout";
+
+// Pages
+import NashPage from "./pages/NashPage";
 import NashCustom from "./pages/NashCustom";
 import GenerateAll from "./pages/GenerateAll";
 import QuestionsList from "./pages/QuestionsList";
 import QuestionView from "./pages/QuestionView";
-import { generateStudentInputQuestions, generateSearchQuestions } from "./api";
+import { generateSearchQuestions } from "./api";
 import CSPPoint3 from "./pages/Csp";
+import MinMax from "./pages/MinMax";
+import GlassCard from "./components/ui/GlassCard";
+import NeonButton from "./components/ui/NeonButton";
 
-/**
- * Wrapper Home care afișează generatorul corect și lista de întrebări
- * în funcție de ruta (se pune filterType pentru QuestionsList).
- */
-function HomeFrame({ mode }: { mode: "all" | "nash_generated" | "nash_task" | "search_generated" }) {
-  const [refreshKey, setRefreshKey] = React.useState<number>(0);
-  const [generating, setGenerating] = React.useState<boolean>(false);
-  const [count, setCount] = React.useState<number>(1);
-  const [percentNoNe, setPercentNoNe] = React.useState<number>(50); // procent jocuri FĂRĂ NE
-  const [ensure, setEnsure] = React.useState<"any" | "at_least_one" | "none">("any");
-  const navigate = useNavigate();
-
-  // ADĂUGATE: state pentru dimensiuni fixe (rows x cols)
-  const [fixedRows, setFixedRows] = React.useState<number | undefined>(2);
-  const [fixedCols, setFixedCols] = React.useState<number | undefined>(4);
-
-  let filterType: string | undefined;
-  if (mode === "nash_generated") filterType = "normal_form_game";
-  else if (mode === "nash_task") filterType = "normal_form_game_custom_student_input";
-  else if (mode === "search_generated") filterType = "search_problem_identification";
-
-  // generează folosind endpointul custom care salvează task-uri student_input
-  async function generateStudentInputTasks() {
-    try {
-      setGenerating(true);
-      const options: any = {};
-      if (ensure && ensure !== "any") {
-        options.ensure = ensure === "at_least_one" ? "at_least_one" : "none";
-      } else {
-        // UI folosește percentNoNe = procentul de jocuri FĂRĂ NE (ex: 40% fără NE)
-        // backend param e target_fraction_no_ne (0..1)
-        options.targetFractionNoNe = Math.max(0, Math.min(100, percentNoNe)) / 100.0;
-      }
-      // optional, backend custom va genera student_input by default; we keep save_as for clarity
-      options.save_as = "normal_form_game_custom_student_input";
-
-      // ADĂUGATE: trimitem dimensiunile dacă sunt setate
-      if (typeof fixedRows === "number") options.fixedRows = fixedRows;
-      if (typeof fixedCols === "number") options.fixedCols = fixedCols;
-
-      // <-- CALL THE NEW FUNCTION (points to /api/questions_custom/generate)
-      await generateStudentInputQuestions(count, options);
-
-      // reîmprospătăm lista
-      setRefreshKey(k => k + 1);
-      alert(`${count} task-uri generate — verifică lista.`);
-    } catch (err: any) {
-      console.error(err);
-      alert("Eroare la generare: " + (err?.message || err));
-    } finally {
-      setGenerating(false);
-    }
-  }
+// Inline Search Page Wrapper
+const SearchPage = () => {
+  const [count, setCount] = React.useState(1);
+  const [generating, setGenerating] = React.useState(false);
+  const [refreshKey, setRefreshKey] = React.useState(0);
 
   async function handleGenerateSearch() {
     try {
       setGenerating(true);
       await generateSearchQuestions(count);
       setRefreshKey(k => k + 1);
-      alert(`${count} întrebări Search generate.`);
+      alert(`${count} questions generated.`);
     } catch (err: any) {
-      console.error(err);
-      alert("Eroare la generare: " + err.message);
+      alert("Error: " + err.message);
     } finally {
       setGenerating(false);
     }
   }
 
   return (
-    <>
-      {mode === "all" && <GenerateAll onGenerated={() => { /* noop */ }} />}
-      {mode === "nash_generated" && <NashGenerated onGenerated={() => { /* noop */ }} />}
-      {mode === "search_generated" && (
-        <div style={{ padding: 12, marginBottom: 12, background: "#fff", borderRadius: 6 }}>
-          <h3 style={{ marginTop: 0 }}>Search Problems</h3>
-          <p>Identifică strategia potrivită pentru probleme de căutare (N-Queens, Graph Coloring, etc).</p>
-          <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12 }}>
-            <label>
-              <div style={{ fontSize: 13 }}>Număr întrebări</div>
-              <input type="number" min={1} value={count} onChange={e => setCount(Math.max(1, Number(e.target.value) || 1))} style={{ width: 80 }} />
-            </label>
-            <button className="btn btn-primary" onClick={handleGenerateSearch} disabled={generating}>
-              {generating ? "Se generează..." : "Generează Search Questions"}
-            </button>
-          </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <GlassCard header={<h3 style={{ margin: 0, color: 'var(--text-accent)' }}>Search Problems Generator</h3>}>
+        <p style={{ color: 'var(--text-secondary)' }}>Identify the correct strategy for search problems (N-Queens, Graph Coloring, etc).</p>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12 }}>
+          <label>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Count</div>
+            <input
+              type="number"
+              min={1}
+              value={count}
+              onChange={e => setCount(Math.max(1, Number(e.target.value) || 1))}
+              style={{
+                width: 80,
+                padding: '8px',
+                borderRadius: '6px',
+                border: '1px solid #334155',
+                background: '#1e293b',
+                color: 'white'
+              }}
+            />
+          </label>
+          <NeonButton onClick={handleGenerateSearch} disabled={generating} glow variant="primary">
+            {generating ? "Generating..." : "Generate Search Questions"}
+          </NeonButton>
         </div>
-      )}
+      </GlassCard>
 
-      {mode === "nash_task" && (
-        <div style={{ padding: 12, marginBottom: 12, background: "#fff", borderRadius: 6 }}>
-          <h3 style={{ marginTop: 0 }}>Taskuri — student introduce matricea</h3>
-          <p style={{ margin: 0 }}>
-            Generează task‑uri în care studentul va completa matricea și va indica dacă există Nash pur.
-            Generatorul va salva fiecare task cu promptul potrivit (ex.: "Formează o matrice în care să fie Nash pur" sau "…să NU fie Nash pur").
-          </p>
+      <GlassCard header={<h3>Search History</h3>}>
+        <QuestionsList filterType="all_context" contextMode="search" refreshKey={refreshKey} />
+      </GlassCard>
+    </div>
+  );
+};
 
-          <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
-            <label>
-              <div style={{ fontSize: 13 }}>Număr întrebări</div>
-              <input type="number" min={1} value={count} onChange={e => setCount(Math.max(1, Number(e.target.value) || 1))} style={{ width: 80 }} />
-            </label>
+/* Router wrapper for QuestionView */
+function QuestionViewWithRouter() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  if (!id) return <div>Invalid question id</div>;
+  return <QuestionView id={id} onBack={() => navigate(-1)} />;
+}
 
-            <label>
-              <div style={{ fontSize: 13 }}>Procent jocuri FĂRĂ NE (%)</div>
-              <input type="number" min={0} max={100} value={percentNoNe} onChange={e => setPercentNoNe(Math.max(0, Math.min(100, Number(e.target.value) || 0)))} style={{ width: 80 }} />
-            </label>
+/* Custom Nash Wrapper */
+function CustomGameWrapper() {
+  const nav = useNavigate();
+  // Mock a question object for the CustomNash component or use it differently?
+  // NashCustom expects a { question } prop.
+  // Actually, NashCustom is a "Question View" component for a SPECIFIC question type.
+  // We need a "Creator" page if we want to START a custom game.
+  // Looking at the code, `NashPage` handles generators. `NashCustom` handles the VIEW of a custom task.
+  // If the user wants to CREATE a custom matrix task, they use the Generator which creates a "Task" question.
+  // So "Custom Games" route might be redundant if GenerateAll handles it.
+  // However, I'll put a placeholder or the generator there.
+  return (
+    <GlassCard header={<h2 className="text-gradient">Custom Games</h2>}>
+      <div style={{ color: 'var(--text-secondary)' }}>
+        To play a custom game, use the <strong>Batch Gen</strong> or <strong>Nash Equilibrium</strong> generator to create a "Student Input" task.
+        <br /><br />
+        Then find it in the <strong>History</strong>.
+      </div>
+    </GlassCard>
+  );
+}
 
-            <label>
-              <div style={{ fontSize: 13 }}>Forțează (override procent)</div>
-              <select value={ensure} onChange={e => setEnsure(e.target.value as any)}>
-                <option value="any">Orice (folosește procent)</option>
-                <option value="at_least_one">Să aibă cel puțin un Nash pur</option>
-                <option value="none">Să NU aibă Nash pur</option>
-              </select>
-            </label>
-
-            {/* ADĂUGATE: controale pentru dimensiuni */}
-            <label>
-              <div style={{ fontSize: 13 }}>Rows</div>
-              <input
-                type="number"
-                min={1}
-                value={fixedRows ?? ""}
-                onChange={(e) => setFixedRows(e.target.value ? Math.max(1, Number(e.target.value)) : undefined)}
-                style={{ width: 80 }}
-              />
-            </label>
-
-            <label>
-              <div style={{ fontSize: 13 }}>Cols</div>
-              <input
-                type="number"
-                min={1}
-                value={fixedCols ?? ""}
-                onChange={(e) => setFixedCols(e.target.value ? Math.max(1, Number(e.target.value)) : undefined)}
-                style={{ width: 80 }}
-              />
-            </label>
-
-            <div>
-              <button className="btn btn-primary" onClick={generateStudentInputTasks} disabled={generating}>
-                {generating ? "Se generează..." : "Generează task-uri (student input)"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <QuestionsList filterType={filterType} refreshKey={refreshKey} />
-    </>
+// Global History Page
+function GlobalHistory() {
+  const [refreshKey, setRefreshKey] = React.useState(0);
+  return (
+    <GlassCard header={<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <h2 className="text-gradient" style={{ margin: 0 }}>Global History</h2>
+      <NeonButton onClick={() => setRefreshKey(k => k + 1)} variant="ghost" style={{ fontSize: '0.8rem' }}>Refresh</NeonButton>
+    </div>}>
+      <QuestionsList refreshKey={refreshKey} contextMode="global" />
+    </GlassCard>
   );
 }
 
 export default function App() {
   return (
     <BrowserRouter>
-      <Header />
-      <main className="container">
-        <Routes>
-          <Route path="/" element={<Navigate to="/all" replace />} />
-          <Route path="/all" element={<HomeFrame mode="all" />} />
-          <Route path="/nash/generated" element={<HomeFrame mode="nash_generated" />} />
-          <Route path="/nash/task" element={<HomeFrame mode="nash_task" />} />
-          <Route path="/search/generated" element={<HomeFrame mode="search_generated" />} />
-          <Route path="/question/:id" element={<QuestionViewRouter />} />
-          <Route path="*" element={<Navigate to="/all" replace />} />
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path="/" element={<Navigate to="/nash" replace />} />
+
+          {/* Modules */}
+          <Route path="/nash" element={<NashPage />} />
+          <Route path="/search" element={<SearchPage />} />
+          <Route path="/minmax" element={<MinMax />} />
           <Route path="/csp" element={<CSPPoint3 />} />
-        </Routes>
-      </main>
+
+          {/* Tools / Archives */}
+          <Route path="/custom-nash" element={<CustomGameWrapper />} />
+          <Route path="/generate-all" element={<GenerateAll onGenerated={() => { }} />} />
+          <Route path="/history" element={<GlobalHistory />} />
+
+          {/* Details View */}
+          <Route path="/question/:id" element={<QuestionViewWithRouter />} />
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/nash" replace />} />
+        </Route>
+      </Routes>
     </BrowserRouter>
   );
-}
-
-/* Header separată pentru a folosi navigate / location */
-function Header() {
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  // derive current / active labels from location.pathname
-  // DEBUG: Force reload 1
-  const path = location.pathname;
-  const current =
-    path.startsWith("/nash/task") ? "nash_task" :
-      path.startsWith("/nash/generated") ? "nash_generated" :
-        path.startsWith("/search") ? "search" :
-          path.startsWith("/csp") ? "csp" :
-          "all";
-
-  function onCategorySelect(cat: string) {
-    if (cat === "all") navigate("/all");
-    else if (cat === "nash_pur") navigate("/nash/generated");
-    else if (cat === "search") navigate("/search/generated");
-    else if (cat === "csp") navigate("/csp");
-  }
-
-  function onSubcategorySelect(sub: string) {
-    if (sub === "generated") navigate("/nash/generated");
-    else if (sub === "task") navigate("/nash/task");
-  }
-
-  return (
-    <header>
-      <div>
-        <h1>SmarTest — L6 (Nash-pur)</h1>
-        <p>Antrenament pentru găsirea echilibrelor Nash pure</p>
-      </div>
-
-      <nav>
-        <button className="btn" onClick={() => navigate("/all")}>Home</button>
-
-        <div style={{ width: 12 }} />
-
-        <CategoryDropdown current={current} onSelect={onCategorySelect} />
-
-        {(current === "nash_generated" || current === "nash_task") && (
-          <div className="category-group" style={{ marginLeft: 8 }}>
-            <button className={`category-btn ${current === "nash_generated" ? "active" : ""}`} onClick={() => onSubcategorySelect("generated")}>Generat</button>
-            <button className={`category-btn ${current === "nash_task" ? "active" : ""}`} onClick={() => onSubcategorySelect("task")}>Task</button>
-          </div>
-        )}
-      </nav>
-    </header>
-  );
-}
-
-/* Router wrapper for QuestionView so we can use useParams */
-function QuestionViewRouter() {
-  return <QuestionViewWithRouter />;
-}
-
-import { useParams, useNavigate as useNav } from "react-router-dom";
-function QuestionViewWithRouter() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNav();
-  if (!id) return <div>Invalid question id</div>;
-  return <QuestionView id={id} onBack={() => navigate(-1)} />;
 }

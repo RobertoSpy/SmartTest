@@ -1,5 +1,5 @@
 # frontend/Dockerfile
-FROM node:18-bullseye-slim
+FROM node:20-bullseye-slim
 
 WORKDIR /app
 
@@ -14,5 +14,5 @@ COPY . /app
 
 EXPOSE 5173
 
-# dev command: allow binding to 0.0.0.0 via --host
-CMD ["npm", "run", "dev", "--", "--host"]
+# dev command: use npx to ensure we find the local binary
+CMD ["npx", "vite", "--host"]
