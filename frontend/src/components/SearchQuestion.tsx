@@ -28,6 +28,22 @@ const SearchQuestion: React.FC<SearchQuestionProps> = ({ question, onUpdate }) =
         }
     };
 
+    // Auto-reveal for solver questions
+    React.useEffect(() => {
+        if (question?.data?.is_solver && !result) {
+            setResult({
+                correct: true,
+                score_percent: 100,
+                explanation: question.data.explanation,
+                // Synthetic result for display
+                strategy: question.data.correct_strategy,
+                heuristic: question.data.correct_heuristic
+            });
+            // Auto-fill input for visual clarity
+            setAnswerText(`${question.data.correct_strategy} + ${question.data.correct_heuristic || ''}`);
+        }
+    }, [question]);
+
     return (
         <div style={{ marginTop: '1rem' }}>
             <div style={{ marginBottom: '1.5rem', whiteSpace: 'pre-wrap', fontSize: '1.1rem', lineHeight: '1.6', color: 'var(--text-primary)' }}>

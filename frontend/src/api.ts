@@ -205,6 +205,15 @@ export async function generateSearchQuestions(count: number) {
   return handleResponse(res);
 }
 
+export async function createCustomSearchQuestion(payload: { prompt: string, options?: string[] }) {
+  const res = await fetch(`${API_BASE}/api/questions/search/create_custom`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
 export const solveCSP = async (data: any) => {
   try {
     const response = await fetch(`${API_BASE}/csp/solve`, {
@@ -264,6 +273,7 @@ export default {
   createCustomQuestion,
   createStudentInputQuestion,
   generateSearchQuestions,
+  createCustomSearchQuestion,
   submitSearchAnswer,
   solveCSP,
   generateMinMaxQuestion,

@@ -3,15 +3,60 @@ from sqlmodel import Session, select, desc
 from app.database import engine
 from app.models import Question, Evaluation
 from app.services.search.generator_search import generate_batch
+from app.services.search_custom.solver import solve_prompt
 from app.services.search.evaluator_search import evaluate_search_submission
 import json
-from typing import Optional
+from typing import Optional, List
+from pydantic import BaseModel
+import uuid
+from datetime import datetime
 
 router = APIRouter()
 
 def get_db():
     with Session(engine) as session:
         yield session
+
+class CreateCustomSearchRequest(BaseModel):
+    prompt: str
+    options: Optional[List[str]] = None
+
+@router.post("/create_custom")
+def create_custom(req: CreateCustomSearchRequest, db: Session = Depends(get_db)):
+    q_id = str(uuid.uuid4())
+    
+    # Try to solve the prompt automatically
+    solution = solve_prompt(req.prompt)
+    
+    q = Question(
+        id=q_id,
+        type="search_problem_identification", 
+        prompt=req.prompt,
+        created_at=datetime.utcnow(),
+        data={
+            "problem_name": "Custom Problem",
+            "instance_text": req.prompt,
+            "options": req.options if req.options else ["A*", "Greedy Best-First Search", "BFS", "DFS", "Hill Climbing"],
+            "correct_strategy": solution.get("correct_strategy", "Unknown"),
+            "correct_heuristic": solution.get("correct_heuristic", "Unknown"),
+            "explanation": solution.get("explanation", ""),
+            "is_solver": True
+        }
+    )
+    db.add(q)
+    db.commit()
+    db.refresh(q)
+    return {
+        "id": q.id, 
+        "message": "Custom search question created", 
+        "created_at": q.created_at,
+        "solution": {
+            "strategy": solution.get("correct_strategy"),
+            "heuristic": solution.get("correct_heuristic"),
+            "explanation": solution.get("explanation")
+        }
+    }
+
 
 def _hide_solution(q_json: dict) -> dict:
     q = dict(q_json)

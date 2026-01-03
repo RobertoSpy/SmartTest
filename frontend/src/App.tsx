@@ -9,7 +9,7 @@ import NashCustom from "./pages/NashCustom";
 import GenerateAll from "./pages/GenerateAll";
 import QuestionsList from "./pages/QuestionsList";
 import QuestionView from "./pages/QuestionView";
-import { generateSearchQuestions } from "./api";
+import { generateSearchQuestions, createCustomSearchQuestion } from "./api";
 import CSPPoint3 from "./pages/Csp";
 import MinMax from "./pages/MinMax";
 import GlassCard from "./components/ui/GlassCard";
@@ -34,32 +34,132 @@ const SearchPage = () => {
     }
   }
 
+  const [mode, setMode] = React.useState<"random" | "custom">("random");
+  const [customPrompt, setCustomPrompt] = React.useState("");
+  const [solutionResult, setSolutionResult] = React.useState<any>(null);
+
+  async function handleCreateCustom(e: React.FormEvent) {
+    e.preventDefault();
+    setSolutionResult(null);
+    try {
+      setGenerating(true);
+      const resp = await createCustomSearchQuestion({
+        prompt: customPrompt
+      });
+      setRefreshKey(k => k + 1);
+
+      if (resp.solution) {
+        setSolutionResult(resp.solution);
+      } else {
+        alert("Custom search question created! Check History.");
+        setCustomPrompt("");
+      }
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <GlassCard header={<h3 style={{ margin: 0, color: 'var(--text-accent)' }}>Search Problems Generator</h3>}>
-        <p style={{ color: 'var(--text-secondary)' }}>Identify the correct strategy for search problems (N-Queens, Graph Coloring, etc).</p>
-        <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12 }}>
-          <label>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Count</div>
-            <input
-              type="number"
-              min={1}
-              value={count}
-              onChange={e => setCount(Math.max(1, Number(e.target.value) || 1))}
-              style={{
-                width: 80,
-                padding: '8px',
-                borderRadius: '6px',
-                border: '1px solid #334155',
-                background: '#1e293b',
-                color: 'white'
-              }}
-            />
-          </label>
-          <NeonButton onClick={handleGenerateSearch} disabled={generating} glow variant="primary">
-            {generating ? "Generating..." : "Generate Search Questions"}
+        <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+          <NeonButton
+            onClick={() => { setMode("random"); setSolutionResult(null); }}
+            variant={mode === "random" ? "primary" : "ghost"}
+            style={{ fontSize: "0.85rem", padding: "6px 16px" }}
+          >
+            Random (AI)
+          </NeonButton>
+          <NeonButton
+            onClick={() => { setMode("custom"); setSolutionResult(null); }}
+            variant={mode === "custom" ? "primary" : "ghost"}
+            style={{ fontSize: "0.85rem", padding: "6px 16px" }}
+          >
+            Solver (Custom)
           </NeonButton>
         </div>
+
+        {mode === "random" ? (
+          <>
+            <p style={{ color: 'var(--text-secondary)' }}>Identify the correct strategy for search problems (N-Queens, Graph Coloring, etc).</p>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12 }}>
+              <label>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Count</div>
+                <input
+                  type="number"
+                  min={1}
+                  value={count}
+                  onChange={e => setCount(Math.max(1, Number(e.target.value) || 1))}
+                  style={{
+                    width: 80,
+                    padding: '8px',
+                    borderRadius: '6px',
+                    border: '1px solid #334155',
+                    background: '#1e293b',
+                    color: 'white'
+                  }}
+                />
+              </label>
+              <NeonButton onClick={handleGenerateSearch} disabled={generating} glow variant="primary">
+                {generating ? "Generating..." : "Generate Search Questions"}
+              </NeonButton>
+            </div>
+          </>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <form onSubmit={handleCreateCustom} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }}>Problem Description (Prompt)</span>
+                <textarea
+                  value={customPrompt}
+                  onChange={e => setCustomPrompt(e.target.value)}
+                  placeholder="Paste the text of a search problem here (e.g. 'Solve N-Queens...'). The system will auto-detect the strategy."
+                  rows={4}
+                  required
+                  style={{
+                    background: '#1e293b',
+                    border: '1px solid #334155',
+                    borderRadius: '8px',
+                    color: 'white',
+                    padding: '12px',
+                    fontFamily: 'inherit'
+                  }}
+                />
+              </label>
+
+              <NeonButton type="submit" disabled={generating} glow variant="primary" style={{ alignSelf: "flex-start" }}>
+                {generating ? "Solving..." : "Solve Problem"}
+              </NeonButton>
+            </form>
+
+            {solutionResult && (
+              <div style={{
+                marginTop: 10,
+                padding: 16,
+                background: 'rgba(34, 197, 94, 0.1)',
+                border: '1px solid var(--neon-green)',
+                borderRadius: 12
+              }}>
+                <div style={{ color: 'var(--neon-green)', fontWeight: 'bold', marginBottom: 8 }}>
+                  Solution Identified
+                </div>
+                <div style={{ marginBottom: 4 }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Strategy: </span>
+                  <span style={{ fontWeight: 600, color: 'white' }}>{solutionResult.strategy}</span>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Heuristic: </span>
+                  <span style={{ fontWeight: 600, color: 'white' }}>{solutionResult.heuristic}</span>
+                </div>
+                <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}>
+                  {solutionResult.explanation}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </GlassCard>
 
       <GlassCard header={<h3>Search History</h3>}>
