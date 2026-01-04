@@ -46,8 +46,12 @@ def select_unassigned_variable(variables, assignment):
 
 
 def backtracking_fc(csp, assignment, domains, steps):
+    solutions = []  # Vom salva toate soluțiile posibile
+
+    # Dacă toate variabilele sunt atribuite, adăugăm soluția la listă
     if len(assignment) == len(csp.variables):
-        return assignment
+        solutions.append(deepcopy(assignment))  # Adăugăm soluția la lista de soluții
+        return solutions  # Întoarcem soluțiile găsite până acum
 
     var = select_unassigned_variable(csp.variables, assignment)
 
@@ -56,18 +60,17 @@ def backtracking_fc(csp, assignment, domains, steps):
             assignment[var] = value
             steps.append(f"Assign {var} = {value}")
 
-            new_domains = forward_checking(
-                csp, var, value, domains, assignment
-            )
+            # Aplicăm forward checking pentru a actualiza domeniile
+            new_domains = forward_checking(csp, var, value, domains, assignment)
 
             if new_domains is not None:
-                result = backtracking_fc(
-                    csp, assignment, new_domains, steps
-                )
+                # Recursivă pentru a explora mai departe, fără a face backtrack
+                result = backtracking_fc(csp, assignment, new_domains, steps)
                 if result:
-                    return result
+                    solutions.extend(result)  # Adăugăm toate soluțiile găsite
 
             steps.append(f"Backtrack on {var}")
             assignment.pop(var)
 
-    return None
+    return solutions  # Returnăm toate soluțiile găsite
+

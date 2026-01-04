@@ -2,130 +2,143 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Dict, List
 from app.services.csp.evaluator_csp import CSP, backtracking_fc
-
+import random
 router = APIRouter(prefix="/csp", tags=["CSP"])
+
 
 class CSPRequest(BaseModel):
     variables: List[str]
     domains: Dict[str, List[int]]
     partial_assignment: Dict[str, int]
-    constraints: List[Dict[str, str]]  # Primește constrângerile din frontend
+    constraints: List[Dict[str, str]]
+
+class CSPCheckRequest(BaseModel):
+    variables: List[str]
+    domains: Dict[str, List[int]]
+    constraints: List[Dict[str, str]]
+    user_solution: Dict[str, int]
+
+class CSPGenerateRequest(BaseModel):
+    variables: List[str] = []
+    domains: Dict[str, List[int]] = {}
+
 
 @router.post("/solve")
 def solve_csp(req: CSPRequest):
     constraints = []
 
-    # Adăugăm constrângerile din frontend
     for constraint in req.constraints:
         x = constraint["var1"]
         y = constraint["var2"]
-        condition = constraint["condition"]
-        
-        # Definirea constrângerii
-        if condition == "!=":
+        c = constraint["condition"]
+
+        if c == "!=":
             constraints.append((x, y, lambda a, b: a != b))
-        elif condition == "=":
+        elif c == "=":
             constraints.append((x, y, lambda a, b: a == b))
-        elif condition == ">":
+        elif c == ">":
             constraints.append((x, y, lambda a, b: a > b))
-        elif condition == "<":
+        elif c == "<":
             constraints.append((x, y, lambda a, b: a < b))
 
-    csp = CSP(
-        variables=req.variables,
-        domains=req.domains,
-        constraints=constraints
-    )
-
+    csp = CSP(req.variables, req.domains, constraints)
     steps = []
-    assignment = req.partial_assignment.copy()
 
-    solution = backtracking_fc(
-        csp, assignment, req.domains, steps
-    )
+    solutions = backtracking_fc(csp, req.partial_assignment.copy(), req.domains, steps)
 
     return {
-        "solution": solution,
+        "solutions": solutions,  # Returnăm toate soluțiile găsite
         "steps": steps
     }
 
-class CSPResponse(BaseModel):
-    problem: Dict
-    solution: Dict = None
-    steps: List[str] = []
+
 
 @router.post("/generate_problem")
-def generate_csp_problem(req: CSPRequest):
+def generate_csp_problem(req: CSPGenerateRequest):
+    # Generăm variabile aleatorii (ex: X1, X2, X3)
+    num_variables = random.randint(3, 5)  # Număr aleatoriu de variabile (3 până la 5)
+    variables = [f"X{i+1}" for i in range(num_variables)]
+
+    # Generăm domenii aleatorii pentru fiecare variabilă (ex: [1, 2, 3], [1, 2, 3, 4], etc.)
+    domains = {var: random.sample(range(1, 6), random.randint(2, 4)) for var in variables}
+
+    # Generăm constrângeri aleatorii (de ex: X1 != X2, X2 = X3, X3 > X4)
+    conditions = ["!=", "=", ">", "<"]
     constraints = []
+    for i in range(len(variables) - 1):
+        x = variables[i]
+        y = variables[i + 1]
+        condition = random.choice(conditions)  # Alegem aleatoriu o condiție
+        constraints.append({"var1": x, "var2": y, "condition": condition})
 
-    for i in range(len(req.variables) - 1):
-        x = req.variables[i]
-        y = req.variables[i + 1]
-        constraints.append((x, y, lambda a, b: a != b))  # Exemplu de constrângere simplă
-
+    # Crearea problemei CSP
     csp = CSP(
-        variables=req.variables,
-        domains=req.domains,
+        variables=variables,
+        domains=domains,
         constraints=constraints,
     )
 
+    # Creăm pașii pentru backtracking și soluția
     steps = []
     assignment = {}
 
-    solution = backtracking_fc(csp, assignment, req.domains, steps)
+    solution = backtracking_fc(csp, assignment, domains, steps)
 
-    # Adaugă un print pentru a verifica ce returnează serverul
-    print("Problem generated:", {
-        "variables": req.variables,
-        "domains": req.domains,
-        "constraints": constraints,
-        "solution": solution,
-        "steps": steps,
-    })
-
+    # Returnăm problema generată și soluția
     return {
         "problem": {
-            "variables": req.variables,
-            "domains": req.domains,
+            "variables": variables,
+            "domains": domains,
             "constraints": constraints
         },
-        "solution": solution,
-        "steps": steps,
+        "solution": solution
     }
 
 
 @router.post("/check_solution")
-def check_csp_solution(req: CSPRequest):
+def check_csp_solution(req: CSPCheckRequest):
     constraints = []
 
     for constraint in req.constraints:
         x = constraint["var1"]
         y = constraint["var2"]
-        condition = constraint["condition"]
-        
-        # Adăugăm constrângerea corespunzătoare
-        if condition == "!=":
+        c = constraint["condition"]
+
+        if c == "!=":
             constraints.append((x, y, lambda a, b: a != b))
-        elif condition == "=":
+        elif c == "=":
             constraints.append((x, y, lambda a, b: a == b))
-        elif condition == ">":
+        elif c == ">":
             constraints.append((x, y, lambda a, b: a > b))
-        elif condition == "<":
+        elif c == "<":
             constraints.append((x, y, lambda a, b: a < b))
 
-    csp = CSP(
-        variables=req.variables,
-        domains=req.domains,
-        constraints=constraints,
+    csp = CSP(req.variables, req.domains, constraints)
+    steps = []
+
+    correct_solutions = backtracking_fc(csp, {}, req.domains, steps)
+
+    if not correct_solutions:
+        return {
+            "is_correct": False,
+            "score": 0,
+            "feedback": "Problema nu are soluție."
+        }
+
+    total = len(req.variables)
+    correct = sum(
+        1 for v in req.variables
+        if any(solution.get(v) == req.user_solution.get(v) for solution in correct_solutions)
     )
 
-    steps = []
-    assignment = req.partial_assignment
+    score = int((correct / total) * 100)
 
-    solution = backtracking_fc(csp, assignment, req.domains, steps)
-
-    # Verificăm soluția
-    if solution == req.partial_assignment:
-        return {"is_correct": True, "steps": steps}
-    else:
-        return {"is_correct": False, "steps": steps}
+    return {
+        "is_correct": score == 100,
+        "score": score,
+        "correct_solutions": correct_solutions,
+        "feedback": (
+            "Răspuns corect!" if score == 100
+            else f"{correct}/{total} variabile corecte."
+        )
+    }
