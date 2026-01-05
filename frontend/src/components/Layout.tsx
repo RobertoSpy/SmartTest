@@ -95,6 +95,7 @@ const Layout: React.FC = () => {
               <SidebarItem to="/search" icon={Search} label="Search" />
               <SidebarItem to="/minmax" icon={GitBranch} label="MinMax" />
               <SidebarItem to="/csp" icon={Binary} label="CSP" />
+              <SidebarItem to="/game-theory-generated" icon={Binary} label="Game Theory" />
             </div>
           </div>
 

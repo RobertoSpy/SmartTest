@@ -15,7 +15,7 @@ export default function QuestionsList({
   filterType?: string;
   refreshKey?: number;
   showFilter?: boolean;
-  contextMode?: 'global' | 'nash' | 'minmax' | 'search';
+  contextMode?: 'global' | 'nash' | 'minmax' | 'search' | 'game theory';
 }) {
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,6 +152,15 @@ export default function QuestionsList({
     if (t === "minmax_custom") return { cat: "MinMax", sub: "Custom" };
     if (t === "minmax_random") return { cat: "MinMax", sub: "Random" };
     if (t === "csp_generated") return { cat: "CSP", sub: "Validation" };
+
+    if (t.startsWith("game_theory")) {
+      // e.g. game_theory_pareto_optimality -> Pareto Optimality
+      // e.g. game_theory_dominant_strategy -> Dominant Strategy
+      // e.g. game_theory_named -> Named Game (legacy fallback)
+      const subRaw = t.replace("game_theory_", "").replace(/_/g, " ");
+      const sub = subRaw.charAt(0).toUpperCase() + subRaw.slice(1);
+      return { cat: "Game Theory", sub: sub };
+    }
     return { cat: "System", sub: t };
   };
 
@@ -194,6 +203,7 @@ export default function QuestionsList({
                   <>
                     <option value="all">All Categories</option>
                     <option value="nash">Nash (All)</option>
+                    <option value="game theory">Game Theory</option>
                     <option value="search">Search</option>
                     <option value="minmax">MinMax</option>
                     <option value="csp">CSP</option>

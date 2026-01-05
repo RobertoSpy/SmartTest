@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getQuestion, submitAnswer } from "../api";
+import { getQuestion, submitAnswer, submitGameTheoryAnswer } from "../api";
 import CustomNash from "./NashCustom";
 import SearchQuestion from "../components/SearchQuestion";
 import { useNavigate } from "react-router-dom";
@@ -21,6 +21,7 @@ type Question = {
     rows?: number;
     cols?: number;
     target_has_pure?: boolean | null;
+    metadata?: any;
   };
   created_at?: string;
 };
@@ -43,7 +44,23 @@ export default function QuestionView({ id, onBack }: { id: string; onBack: () =>
         setHasEquilibrium("");
         setProfilesText("");
         setSelectedProfiles([]);
-        setResult(null);
+
+        // If it's a solved custom question, show the result immediately
+        if (q.data?.solution && q.data?.explanation) {
+          setResult({
+            result: {
+              feedback: "Analysis from Solver",
+              score_percent: 100, // It's a solver result, so it's "correct"
+              explanation: q.data.explanation,
+              // We can also show the solution text somewhere? 
+              // The explanation usually contains the solution in our generator. 
+              // But let's append solution to explanation if needed or just rely on explanation.
+              // In custom_gametheory, explanation usually starts with "Yes/No" or "Strategy is...".
+            }
+          });
+        } else {
+          setResult(null);
+        }
       } catch (err: any) {
         alert("Error loading question: " + (err.message || err));
       } finally {
@@ -108,12 +125,28 @@ export default function QuestionView({ id, onBack }: { id: string; onBack: () =>
 
   function renderTableFromPayoff() {
     if (!payoff) return null;
+    const isGameTheory = question.type?.startsWith("game_theory");
     return (
       <div style={{ overflowX: 'auto', margin: '20px 0', background: '#f8fafc', padding: 20, borderRadius: 12 }}>
         <table style={{ borderCollapse: "separate", borderSpacing: "12px", margin: "0 auto" }}>
           <thead>
+            {/* Column Player Name Label */}
+            {question.data?.metadata?.player_col_name && (
+              <tr>
+                <th></th>
+                <th colSpan={colLabels.length} style={{ textAlign: 'center', paddingBottom: 10, color: '#334155', fontWeight: 'bold' }}>
+                  {question.data.metadata.player_col_name} (Cols)
+                </th>
+              </tr>
+            )}
             <tr>
-              <th></th>
+              {/* Row Player Name Label (Side) logic is tricky in simple table, maybe just prepend a header cell? 
+                  Or just put it in the corner? 
+                  Let's put Row Name in the top-left empty cell if exists, or separate column? 
+              */}
+              <th style={{ textAlign: 'right', paddingRight: 10, color: '#334155', fontWeight: 'bold' }}>
+                {question.data?.metadata?.player_row_name ? `${question.data.metadata.player_row_name} (Rows)` : ""}
+              </th>
               {colLabels.map((c, j) => (
                 <th key={j} style={{ color: '#64748b', fontWeight: 600, paddingBottom: 8 }}>{c}</th>
               ))}
@@ -122,20 +155,22 @@ export default function QuestionView({ id, onBack }: { id: string; onBack: () =>
           <tbody>
             {payoff.map((row, i) => (
               <tr key={i}>
-                <td style={{ color: '#64748b', fontWeight: 600, paddingRight: 10 }}>{rowLabels[i] ?? `R${i + 1}`}</td>
+                <td style={{ color: '#64748b', fontWeight: 600, paddingRight: 10, textAlign: 'right', minWidth: '80px' }}>
+                  {rowLabels[i] ?? `R${i + 1}`}
+                </td>
                 {row.map((cell, j) => {
                   const key = `(${i + 1},${j + 1})`;
                   const selected = selectedProfiles.includes(key);
                   return (
                     <td
                       key={j}
-                      onClick={() => toggleCell(i, j)}
+                      onClick={() => !isGameTheory && toggleCell(i, j)}
                       style={{
                         background: selected ? '#fff7ed' : '#ffffff',
                         border: selected ? '2px solid #ea580c' : '2px solid #e2e8f0',
                         borderRadius: '12px',
                         padding: '16px 24px',
-                        cursor: 'pointer',
+                        cursor: isGameTheory ? 'default' : 'pointer',
                         textAlign: 'center',
                         transition: 'all 0.2s ease',
                         minWidth: '90px',
@@ -168,7 +203,15 @@ export default function QuestionView({ id, onBack }: { id: string; onBack: () =>
 
     try {
       setLoading(true);
-      const res = await submitAnswer(question!.id, submission, pdfFile || undefined);
+      let res;
+      if (question!.type?.startsWith("game_theory")) {
+        // Game Theory submission (text only, no PDF support yet)
+        // Trim standard " " if it was prepended
+        res = await submitGameTheoryAnswer(question!.id, submission.trim());
+      } else {
+        // Standard Nash/Generic submission
+        res = await submitAnswer(question!.id, submission, pdfFile || undefined);
+      }
       setResult(res);
     } catch (err: any) {
       alert("Error submitting: " + (err.message || err));
@@ -199,55 +242,62 @@ export default function QuestionView({ id, onBack }: { id: string; onBack: () =>
 
       {payoff ? renderTableFromPayoff() : matrixLines && <pre style={{ background: "#f1f5f9", padding: 12, borderRadius: 8, color: "#334155", fontStyle: 'italic' }}>{matrixLines.join("\n")}</pre>}
 
-      <form onSubmit={handleSubmit} style={{ marginTop: 24, borderTop: '1px solid #f1f5f9', paddingTop: 24 }}>
-        <div style={{ display: "flex", flexDirection: 'column', gap: 20 }}>
+      {/* Hide submission form if it's a pre-solved Custom Solver question */}
+      {!question.data?.is_solver && (
+        <form onSubmit={handleSubmit} style={{ marginTop: 24, borderTop: '1px solid #f1f5f9', paddingTop: 24 }}>
+          <div style={{ display: "flex", flexDirection: 'column', gap: 20 }}>
 
-          <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
-            <span style={{ color: '#64748b', fontWeight: 600 }}>Pure Equilibrium?</span>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: '#333' }}>
-              <input type="radio" name="has" value="da" checked={hasEquilibrium === "da"} onChange={() => setHasEquilibrium("da")} style={{ accentColor: '#ea580c', width: 16, height: 16 }} />
-              <span>Yes</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: '#333' }}>
-              <input type="radio" name="has" value="nu" checked={hasEquilibrium === "nu"} onChange={() => setHasEquilibrium("nu")} style={{ accentColor: '#ea580c', width: 16, height: 16 }} />
-              <span>No</span>
-            </label>
-          </div>
+            {(!question.type?.startsWith("game_theory")) && (
+              <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
+                <span style={{ color: '#64748b', fontWeight: 600 }}>Pure Equilibrium?</span>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: '#333' }}>
+                  <input type="radio" name="has" value="da" checked={hasEquilibrium === "da"} onChange={() => setHasEquilibrium("da")} style={{ accentColor: '#ea580c', width: 16, height: 16 }} />
+                  <span>Yes</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: '#333' }}>
+                  <input type="radio" name="has" value="nu" checked={hasEquilibrium === "nu"} onChange={() => setHasEquilibrium("nu")} style={{ accentColor: '#ea580c', width: 16, height: 16 }} />
+                  <span>No</span>
+                </label>
+              </div>
+            )}
 
-          <div>
-            <label style={{ display: "block", marginBottom: 8, color: "#64748b", fontSize: "0.9rem" }}>
-              Identified Profiles (Click cells or type):
-            </label>
-            <div style={{ display: 'flex', gap: 12 }}>
-              <input
-                type="text"
-                value={profilesText}
-                onChange={(e) => setProfilesText(e.target.value)}
-                placeholder="(1,2) (2,1)..."
-                style={{
-                  flex: 1,
-                  padding: "12px",
-                  borderRadius: 8,
-                  border: "1px solid #cbd5e1",
-                }}
-              />
-              <NeonButton type="submit" disabled={loading} glow variant="primary">Submit</NeonButton>
+            <div>
+              <label style={{ display: "block", marginBottom: 8, color: "#64748b", fontSize: "0.9rem" }}>
+                {question.type?.startsWith("game_theory") ? "Your Answer:" : "Identified Profiles (Click cells or type):"}
+              </label>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <input
+                  type="text"
+                  value={profilesText}
+                  onChange={(e) => setProfilesText(e.target.value)}
+                  placeholder={question.type?.startsWith("game_theory") ? "e.g. Confess, R1..." : "(1,2) (2,1)..."}
+                  style={{
+                    flex: 1,
+                    padding: "12px",
+                    borderRadius: 8,
+                    border: "1px solid #cbd5e1",
+                  }}
+                />
+                <NeonButton type="submit" disabled={loading} glow variant="primary">Submit</NeonButton>
+              </div>
+              <div style={{ marginTop: 6, fontSize: "0.85rem", color: "#ea580c" }}>
+                {!question.type?.startsWith("game_theory") && `Selected: ${selectedProfiles.join(", ") || "—"}`}
+              </div>
             </div>
-            <div style={{ marginTop: 6, fontSize: "0.85rem", color: "#ea580c" }}>
-              Selected: {selectedProfiles.join(", ") || "—"}
-            </div>
-          </div>
 
-          <div>
-            <label style={{ fontSize: "0.9rem", color: "#64748b", display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', width: 'fit-content' }}>
-              <Upload size={16} /> Upload PDF (Optional)
-              <input type="file" accept="application/pdf" onChange={handlePdfChange} style={{ display: 'none' }} />
-            </label>
-            {pdfFile && <div style={{ fontSize: '0.8rem', marginTop: 4, color: '#333' }}>File: {pdfFile.name}</div>}
-          </div>
+            {(!question.type?.startsWith("game_theory")) && (
+              <div>
+                <label style={{ fontSize: "0.9rem", color: "#64748b", display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', width: 'fit-content' }}>
+                  <Upload size={16} /> Upload PDF (Optional)
+                  <input type="file" accept="application/pdf" onChange={handlePdfChange} style={{ display: 'none' }} />
+                </label>
+                {pdfFile && <div style={{ fontSize: '0.8rem', marginTop: 4, color: '#333' }}>File: {pdfFile.name}</div>}
+              </div>
+            )}
 
-        </div>
-      </form>
+          </div>
+        </form>
+      )}
 
       {result && (
         <div
@@ -263,11 +313,26 @@ export default function QuestionView({ id, onBack }: { id: string; onBack: () =>
             <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: result.result?.score_percent === 100 ? '#15803d' : '#b91c1c' }}>
               Score: {result.result?.score_percent ?? result.score_percent ?? "—"}%
             </div>
-            <div><strong style={{ color: '#475569' }}>Feedback:</strong> <span style={{ color: '#333' }}>{result.result?.note ?? result.note ?? ""}</span></div>
+            <div><strong style={{ color: '#475569' }}>Feedback:</strong> <span style={{ color: '#333' }}>{result.result?.feedback ?? result.feedback ?? result.result?.note ?? result.note ?? ""}</span></div>
           </div>
-          <pre style={{ marginTop: 12, whiteSpace: "pre-wrap", background: '#ffffff', padding: 12, borderRadius: 8, fontSize: '0.85rem', color: '#334155', border: '1px solid #e2e8f0' }}>
-            {JSON.stringify(result.result ?? result, null, 2)}
-          </pre>
+
+          {(result.result?.explanation || result.explanation) && (
+            <div style={{ marginTop: 12, padding: 12, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+              <strong style={{ display: 'block', marginBottom: 6, color: '#ea580c' }}>Explanation:</strong>
+              <div style={{ whiteSpace: 'pre-wrap', color: '#334155', fontSize: '0.9rem', lineHeight: '1.5' }}>
+                {result.result?.explanation ?? result.explanation}
+              </div>
+            </div>
+          )}
+
+
+
+          {(!question.type?.startsWith("game_theory")) && (
+            <pre style={{ marginTop: 12, whiteSpace: "pre-wrap", background: '#ffffff', padding: 12, borderRadius: 8, fontSize: '0.85rem', color: '#334155', border: '1px solid #e2e8f0' }}>
+              {JSON.stringify(result.result ?? result, null, 2)}
+            </pre>
+          )}
+
         </div>
       )}
     </GlassCard>

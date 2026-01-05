@@ -46,8 +46,38 @@ export async function generateQuestions(
     params.target_fraction_no_ne = options.targetFractionNoNe;
   if (options?.save_as) params.save_as = options.save_as;
 
+  // Reverted to /api/questions
   const url = `${API_BASE}/api/questions/generate${buildQuery(params)}`;
   const res = await fetch(url, { method: "POST" });
+  return handleResponse(res);
+}
+
+export async function generateGameTheoryQuestions(count: number) {
+  const url = `${API_BASE}/api/gametheory/generate?count=${count}`;
+  const res = await fetch(url, { method: "POST" });
+  return handleResponse(res);
+}
+
+export async function submitGameTheoryAnswer(qid: string, text: string) {
+  const url = `${API_BASE}/api/gametheory/${encodeURIComponent(qid)}/submit?submission_text=${encodeURIComponent(text)}`;
+  const res = await fetch(url, { method: "POST" });
+  return handleResponse(res);
+}
+
+export async function solveGameTheoryScenario(data: {
+  matrix: number[][][];
+  q_type: string;
+  row_labels?: string[];
+  col_labels?: string[];
+  player_row?: string;
+  player_col?: string;
+}) {
+  const url = `${API_BASE}/api/gametheory-custom/solve`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
   return handleResponse(res);
 }
 

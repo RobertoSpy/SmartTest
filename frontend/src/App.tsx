@@ -12,6 +12,8 @@ import QuestionView from "./pages/QuestionView";
 import { generateSearchQuestions, createCustomSearchQuestion } from "./api";
 import CSPPoint3 from "./pages/Csp";
 import MinMax from "./pages/MinMax";
+import NashGenerated from "./pages/NashGenerated";
+import GameTheoryGenerated from "./pages/GameTheoryGenerated";
 import GlassCard from "./components/ui/GlassCard";
 import NeonButton from "./components/ui/NeonButton";
 
@@ -223,6 +225,8 @@ export default function App() {
           <Route path="/nash" element={<NashPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/minmax" element={<MinMax />} />
+          <Route path="/nash-generated" element={<NashGenerated />} />
+          <Route path="/game-theory-generated" element={<GameTheoryGenerated />} />
           <Route path="/csp" element={<CSPPoint3 />} />
 
           {/* Tools / Archives */}
