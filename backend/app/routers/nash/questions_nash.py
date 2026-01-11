@@ -25,26 +25,15 @@ def _hide_solution_from_question_json(q_json: dict) -> dict:
 # Funcția de generare rămâne neschimbată, este deja corectă
 @router.post("/generate")
 def generate(count: int = Query(1, ge=1, le=1000),
-             distribution: Optional[str] = Query(None, description="Optional distribution string e.g. '2x2:50,2x3:25,3x3:20,4x4:5'"),
-             ensure: str = Query("any", regex="^(any|at_least_one|none)$"),
-             target_fraction_no_ne: Optional[float] = Query(None, ge=0.0, le=1.0, description="Ex: 0.5 pentru 50% întrebări fără NE pur"),
+             difficulty: Optional[str] = Query("medium", regex="^(easy|medium|hard)$"),
              db: Session = Depends(get_db)):
+    # Legacy params removed or ignored
     parsed_dist = None
-    if distribution:
-        parsed_dist = {}
-        try:
-            parts = [p.strip() for p in distribution.split(",") if p.strip()]
-            for p in parts:
-                k, v = p.split(":")
-                parsed_dist[k.strip()] = float(v.strip())
-        except Exception:
-            raise HTTPException(status_code=400, detail="Bad distribution format. Use '2x2:50,2x3:25,...'")
-
+    
     qdatas = generate_batch(
         count=count,
         distribution=parsed_dist,
-        ensure=ensure,
-        target_fraction_no_ne=target_fraction_no_ne
+        difficulty=difficulty
     )
 
     created = []

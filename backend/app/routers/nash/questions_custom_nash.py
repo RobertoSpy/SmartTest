@@ -17,11 +17,10 @@ def get_db_session():
 def generate_questions_endpoint(
     request: Request,
     count: int = Query(1, ge=1),
-    ensure: Optional[str] = Query(None),  # "at_least_one" | "none" | None
-    target_fraction_no_ne: Optional[float] = Query(None),
     save_as: Optional[str] = Query(None),
     fixed_rows: Optional[int] = Query(None),
     fixed_cols: Optional[int] = Query(None),
+    difficulty: Optional[str] = Query("medium"),
 ):
     # debug print
     try:
@@ -31,20 +30,14 @@ def generate_questions_endpoint(
 
     created_items: List[Dict[str, Any]] = []
     with get_db_session() as db:
-        want_mode = "any"
-        if ensure == "at_least_one":
-            want_mode = "at_least_one"
-        elif ensure == "none":
-            want_mode = "none"
-
+        
         qdatas = generator_custom_nash.generate_batch(
             count=count,
             distribution=None,
-            ensure=want_mode,
-            target_fraction_no_ne=target_fraction_no_ne,
             student_input=(save_as == "normal_form_game_custom_student_input"),
             fixed_rows=fixed_rows,
             fixed_cols=fixed_cols,
+            difficulty=difficulty,
         )
 
         for qd in qdatas:

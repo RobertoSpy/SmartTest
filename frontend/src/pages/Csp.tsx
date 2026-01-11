@@ -1,15 +1,22 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { solveCSP } from "../api";
+import { useLocation } from "react-router-dom";
 import GlassCard from "../components/ui/GlassCard";
 import NeonButton from "../components/ui/NeonButton";
 import { Plus, Trash2, Play, Settings } from "lucide-react";
+import QuestionsList from "./QuestionsList";
 
 export default function Csp() {
+  const location = useLocation();
   const [mode, setMode] = useState<"solve" | "generate">("solve");
 
+  // State
   const [result, setResult] = useState<any>(null);
   const [generatedProblem, setGeneratedProblem] = useState<any>(null);
   const [userSolution, setUserSolution] = useState<Record<string, number>>({});
+
+  // Refresh trigger for history
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const [numVariables, setNumVariables] = useState<number>(3);
   const [variables, setVariables] = useState<string[]>(["X1", "X2", "X3"]);
@@ -25,6 +32,37 @@ export default function Csp() {
   });
   const [constraints, setConstraints] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [algorithm, setAlgorithm] = useState("fc");
+
+  // Restore state from router history (Navigation)
+  useEffect(() => {
+    if (location.state) {
+      const state = location.state as any;
+
+      if (state.problem) {
+        setMode("generate");
+        setGeneratedProblem(state.problem);
+        if (state.problem.algorithm) setAlgorithm(state.problem.algorithm);
+        setResult(null);
+      }
+      else if (state.restoreData) {
+        setMode("solve");
+        const data = state.restoreData;
+        if (data.variables) setVariables(data.variables);
+        if (data.domains) setDomains(data.domains);
+        if (data.constraints) setConstraints(data.constraints);
+        if (data.partial_assignment) setPartialAssignment(data.partial_assignment);
+        if (data.variables) setNumVariables(data.variables.length);
+        if (data.algorithm) setAlgorithm(data.algorithm);
+
+        if (data.solutions) {
+          setResult({ solutions: data.solutions, steps: data.steps });
+        } else {
+          setResult(null);
+        }
+      }
+    }
+  }, [location.state]);
 
   const handleNumVariablesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const count = Math.max(1, Number(e.target.value));
@@ -69,11 +107,13 @@ export default function Csp() {
       domains,
       partial_assignment: filteredPartial,
       constraints,
+      algorithm,
     };
 
     try {
       const res = await solveCSP(payload);
       setResult(res);
+      setRefreshKey(k => k + 1); // Refresh history
     } catch {
       alert("Error solving CSP");
     } finally {
@@ -87,12 +127,12 @@ export default function Csp() {
     setUserSolution({});
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/csp/generate_problem", {
+      const res = await fetch(`${(import.meta as any).env?.VITE_API_BASE || "http://localhost:8000"}/csp/generate_problem`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({})  
+        body: JSON.stringify({})
       });
 
       if (!res.ok) {
@@ -101,6 +141,7 @@ export default function Csp() {
 
       const data = await res.json();
       setGeneratedProblem(data.problem);
+      setRefreshKey(k => k + 1); // Refresh history
     } catch (error) {
       console.error("Error generating problem:", error);
       alert("There was an issue generating the problem. Please try again later.");
@@ -118,7 +159,7 @@ export default function Csp() {
     };
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/csp/check_solution", {
+      const res = await fetch(`${(import.meta as any).env?.VITE_API_BASE || "http://localhost:8000"}/csp/check_solution`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -154,7 +195,27 @@ export default function Csp() {
       {mode === "solve" && (
         <>
           <GlassCard header={<Settings size={18} />}>
-            <label>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', marginBottom: 6, color: '#e2e8f0' }}>Algorithm / Optimization:</label>
+              <select
+                value={algorithm}
+                onChange={(e) => setAlgorithm(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: 8,
+                  borderRadius: 6,
+                  background: '#1e1b4b', // Darker purple
+                  color: '#fff',
+                  border: '1px solid #4338ca'
+                }}
+              >
+                <option value="fc">Forward Checking (FC)</option>
+                <option value="mrv">Minimum Remaining Values (MRV)</option>
+                <option value="ac3">Arc Consistency (AC-3)</option>
+              </select>
+            </div>
+
+            <label style={{ color: '#fff' }}>
               Number of Variables:
               <input
                 type="number"
@@ -226,7 +287,7 @@ export default function Csp() {
           </GlassCard>
 
           <NeonButton onClick={solve} disabled={loading}>
-            <Play size={18} /> Solve CSP
+            <Play size={18} /> Solve CSP ({algorithm.toUpperCase()})
           </NeonButton>
         </>
       )}
@@ -240,6 +301,13 @@ export default function Csp() {
           {generatedProblem && (
             <GlassCard>
               <h3>Generated Problem</h3>
+
+              <div style={{ background: 'rgba(250, 204, 21, 0.1)', border: '1px solid #facc15', padding: '8px 12px', borderRadius: 6, marginBottom: 16, display: 'inline-block' }}>
+                <strong style={{ color: '#facc15' }}>Required Optimization:</strong>
+                <span style={{ marginLeft: 8, color: '#fff', fontWeight: 'bold' }}>
+                  {generatedProblem.algorithm ? generatedProblem.algorithm.toUpperCase() : "FC"}
+                </span>
+              </div>
 
               <p><b>Variables:</b> {generatedProblem.variables.join(", ")}</p>
 
@@ -290,10 +358,64 @@ export default function Csp() {
             <>
               <h3>Score: {result.score}%</h3>
               <p>{result.feedback}</p>
+              {result.explanation && (
+                <div style={{
+                  marginTop: 12,
+                  padding: 12,
+                  background: 'rgba(255,255,255,0.05)',
+                  borderRadius: 8,
+                  fontSize: '0.9rem',
+                  whiteSpace: 'pre-wrap',
+                  color: '#e2e8f0'
+                }}>
+                  {result.explanation}
+                </div>
+              )}
             </>
           ) : null}
+          {result.solutions && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, marginBottom: 8 }}>
+                <h4 style={{ margin: 0 }}>Solutions Found: {result.solutions.length}</h4>
+                <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>
+                  Search Steps: <b style={{ color: '#fff' }}>{result.steps ? result.steps.length : "N/A"}</b>
+                </span>
+              </div>
+              <div style={{ maxHeight: 200, overflow: 'auto', background: 'rgba(0,0,0,0.3)', padding: 10, borderRadius: 6 }}>
+                {result.solutions.length === 0 ? (
+                  <div style={{ color: '#94a3b8', fontStyle: 'italic' }}>No solutions found.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {result.solutions.map((sol: any, idx: number) => (
+                      <div key={idx} style={{
+                        background: 'rgba(255,255,255,0.05)',
+                        padding: '8px 12px',
+                        borderRadius: 4,
+                        fontSize: '0.9rem',
+                        borderLeft: '3px solid #6366f1'
+                      }}>
+                        <span style={{ color: '#a5b4fc', fontWeight: 'bold', marginRight: 8 }}>#{idx + 1}</span>
+                        {Object.entries(sol).map(([k, v]) => (
+                          <span key={k} style={{ marginRight: 12, color: '#e2e8f0' }}>
+                            <span style={{ color: '#94a3b8' }}>{k}=</span>
+                            <b>{String(v)}</b>
+                          </span>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </GlassCard>
       )}
+
+      {/* History Section via QuestionsList */}
+      <GlassCard header={<h3 style={{ margin: 0 }}>CSP History</h3>}>
+        <QuestionsList contextMode="csp" refreshKey={refreshKey} />
+      </GlassCard>
+
     </div>
   );
 }

@@ -3,10 +3,10 @@ from sqlmodel import Field, SQLModel
 from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import JSONB
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 def now_utc():
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
 
 def gen_uuid() -> str:
     return str(uuid.uuid4())

@@ -15,7 +15,7 @@ export default function QuestionsList({
   filterType?: string;
   refreshKey?: number;
   showFilter?: boolean;
-  contextMode?: 'global' | 'nash' | 'minmax' | 'search' | 'game theory';
+  contextMode?: 'global' | 'nash' | 'minmax' | 'search' | 'game theory' | 'csp';
 }) {
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +42,9 @@ export default function QuestionsList({
         console.warn("Failed to parse mock history");
       }
 
+      // Filter out types that are now handled by backend persistence to prevent duplicates
+      mockQs = mockQs.filter((q: any) => q.type !== 'minmax_generated' && q.type !== 'csp_generated');
+
       // 3. Merge
       let allQs = [...persistentQs, ...mockQs];
 
@@ -51,7 +54,7 @@ export default function QuestionsList({
       // 5. Filter
       if (activeCategory !== "all" && activeCategory !== "all_context") {
         allQs = allQs.filter((q: any) => {
-          const { cat, sub } = getHierarchy(q.type);
+          const { cat, sub } = getHierarchy(q);
 
           if (contextMode === 'global') {
             return cat.toLowerCase() === activeCategory.toLowerCase();
@@ -73,7 +76,7 @@ export default function QuestionsList({
         // Active category is "all" or "all_context", but we are in a context mode (e.g. Nash page).
         // We must still filter by the context!
         allQs = allQs.filter((q: any) => {
-          const { cat } = getHierarchy(q.type);
+          const { cat } = getHierarchy(q);
           return cat.toLowerCase() === contextMode.toLowerCase();
         });
       }
@@ -135,6 +138,10 @@ export default function QuestionsList({
       navigate('/csp', { state: { problem: q.data?.problem } });
       return;
     }
+    if (q.type === 'csp_custom') {
+      navigate('/csp', { state: { restoreData: q.data } });
+      return;
+    }
 
     if (onOpen) {
       onOpen(q.id);
@@ -143,23 +150,32 @@ export default function QuestionsList({
     navigate(`/question/${encodeURIComponent(q.id)}`);
   };
 
-  const getHierarchy = (t?: string) => {
+  const getHierarchy = (q: any) => {
+    const t = q.type;
     if (!t) return { cat: "General", sub: "Unknown" };
     if (t === "normal_form_game") return { cat: "Nash", sub: "Equilibrium" };
     if (t === "normal_form_game_custom_student_input") return { cat: "Nash", sub: "Student Task" };
-    if (t === "search_problem_identification") return { cat: "Search", sub: "Problem ID" };
+
+    if (t === "search_problem_identification") {
+      // Differentiation logic:
+      if (q.data?.is_solver) {
+        return { cat: "Search", sub: "Custom ID" };
+      }
+      return { cat: "Search", sub: "Problem ID" };
+    }
+
     if (t === "minmax_generated") return { cat: "MinMax", sub: "Alpha-Beta Tree" };
     if (t === "minmax_custom") return { cat: "MinMax", sub: "Custom" };
     if (t === "minmax_random") return { cat: "MinMax", sub: "Random" };
     if (t === "csp_generated") return { cat: "CSP", sub: "Validation" };
+    if (t === "csp_custom") return { cat: "CSP", sub: "Custom Solver" };
 
     if (t.startsWith("game_theory")) {
-      // e.g. game_theory_pareto_optimality -> Pareto Optimality
-      // e.g. game_theory_dominant_strategy -> Dominant Strategy
-      // e.g. game_theory_named -> Named Game (legacy fallback)
-      const subRaw = t.replace("game_theory_", "").replace(/_/g, " ");
-      const sub = subRaw.charAt(0).toUpperCase() + subRaw.slice(1);
-      return { cat: "Game Theory", sub: sub };
+      // Differentiation logic:
+      if (q.data?.is_solver) {
+        return { cat: "Game Theory", sub: "Custom Input ID" };
+      }
+      return { cat: "Game Theory", sub: "Generated ID" };
     }
     return { cat: "System", sub: t };
   };
@@ -218,6 +234,14 @@ export default function QuestionsList({
                   </>
                 )}
 
+                {contextMode === 'game theory' && (
+                  <>
+                    <option value="all_context">All Game Theory</option>
+                    <option value="generated id">Generated ID</option>
+                    <option value="custom input id">Custom Input ID</option>
+                  </>
+                )}
+
                 {contextMode === 'minmax' && (
                   <>
                     <option value="all_context">All MinMax</option>
@@ -230,6 +254,15 @@ export default function QuestionsList({
                   <>
                     <option value="all_context">All Search</option>
                     <option value="problem id">Problem ID</option>
+                    <option value="custom id">Custom ID</option>
+                  </>
+                )}
+
+                {contextMode === 'csp' && (
+                  <>
+                    <option value="all_context">All CSP</option>
+                    <option value="validation">Validation</option>
+                    <option value="custom solver">Custom Solver</option>
                   </>
                 )}
 
@@ -256,7 +289,7 @@ export default function QuestionsList({
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {questions.map((q) => {
-          const { cat, sub } = getHierarchy(q.type);
+          const { cat, sub } = getHierarchy(q);
           return (
             <div
               key={q.id}

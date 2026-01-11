@@ -14,6 +14,7 @@ type Question = {
   prompt: string;
   type?: string;
   data?: {
+    matrix?: PayoffCell[][]; // fallback for legacy custom saves
     matrix_lines?: string[];
     payoff_matrix?: PayoffCell[][];
     row_labels?: string[];
@@ -22,6 +23,7 @@ type Question = {
     cols?: number;
     target_has_pure?: boolean | null;
     metadata?: any;
+    is_solver?: boolean;
   };
   created_at?: string;
 };
@@ -110,7 +112,7 @@ export default function QuestionView({ id, onBack }: { id: string; onBack: () =>
   }
 
   // --- Standard View ---
-  const payoff = question.data?.payoff_matrix;
+  const payoff = question.data?.payoff_matrix || question.data?.matrix;
   const matrixLines = question.data?.matrix_lines;
   const rowLabels = question.data?.row_labels ?? [];
   const colLabels = question.data?.col_labels ?? [];
@@ -270,12 +272,16 @@ export default function QuestionView({ id, onBack }: { id: string; onBack: () =>
                   type="text"
                   value={profilesText}
                   onChange={(e) => setProfilesText(e.target.value)}
-                  placeholder={question.type?.startsWith("game_theory") ? "e.g. Confess, R1..." : "(1,2) (2,1)..."}
+                  placeholder={question.type?.startsWith("game_theory") ? "e.g. Confess, R1..." : hasEquilibrium === "nu" ? "Disabled (You selected No)" : "(1,2) (2,1)..."}
+                  disabled={hasEquilibrium === "nu"}
                   style={{
                     flex: 1,
                     padding: "12px",
                     borderRadius: 8,
                     border: "1px solid #cbd5e1",
+                    background: hasEquilibrium === "nu" ? "#f1f5f9" : "#fff",
+                    cursor: hasEquilibrium === "nu" ? "not-allowed" : "text",
+                    color: "#000"
                   }}
                 />
                 <NeonButton type="submit" disabled={loading} glow variant="primary">Submit</NeonButton>
@@ -287,11 +293,7 @@ export default function QuestionView({ id, onBack }: { id: string; onBack: () =>
 
             {(!question.type?.startsWith("game_theory")) && (
               <div>
-                <label style={{ fontSize: "0.9rem", color: "#64748b", display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', width: 'fit-content' }}>
-                  <Upload size={16} /> Upload PDF (Optional)
-                  <input type="file" accept="application/pdf" onChange={handlePdfChange} style={{ display: 'none' }} />
-                </label>
-                {pdfFile && <div style={{ fontSize: '0.8rem', marginTop: 4, color: '#333' }}>File: {pdfFile.name}</div>}
+                {/* PDF Upload Removed */}
               </div>
             )}
 
@@ -309,15 +311,20 @@ export default function QuestionView({ id, onBack }: { id: string; onBack: () =>
             background: result.result?.score_percent === 100 ? '#f0fdf4' : '#fef2f2'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
             <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: result.result?.score_percent === 100 ? '#15803d' : '#b91c1c' }}>
               Score: {result.result?.score_percent ?? result.score_percent ?? "—"}%
             </div>
-            <div><strong style={{ color: '#475569' }}>Feedback:</strong> <span style={{ color: '#333' }}>{result.result?.feedback ?? result.feedback ?? result.result?.note ?? result.note ?? ""}</span></div>
+            <div>
+              <strong style={{ color: '#475569' }}>Feedback:</strong>
+              <span style={{ color: '#333', marginLeft: 4 }}>
+                {result.result?.feedback ?? result.feedback ?? result.result?.note ?? result.note ?? ""}
+              </span>
+            </div>
           </div>
 
           {(result.result?.explanation || result.explanation) && (
-            <div style={{ marginTop: 12, padding: 12, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+            <div style={{ marginTop: 12, padding: 12, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', marginBottom: 12 }}>
               <strong style={{ display: 'block', marginBottom: 6, color: '#ea580c' }}>Explanation:</strong>
               <div style={{ whiteSpace: 'pre-wrap', color: '#334155', fontSize: '0.9rem', lineHeight: '1.5' }}>
                 {result.result?.explanation ?? result.explanation}
@@ -325,12 +332,53 @@ export default function QuestionView({ id, onBack }: { id: string; onBack: () =>
             </div>
           )}
 
-
-
           {(!question.type?.startsWith("game_theory")) && (
-            <pre style={{ marginTop: 12, whiteSpace: "pre-wrap", background: '#ffffff', padding: 12, borderRadius: 8, fontSize: '0.85rem', color: '#334155', border: '1px solid #e2e8f0' }}>
-              {JSON.stringify(result.result ?? result, null, 2)}
-            </pre>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* Correct Equilibria (Reference) */}
+              <div style={{ background: '#ffffff', padding: 10, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                <span style={{ fontWeight: 600, color: '#475569', fontSize: '0.9rem' }}>Correct Equilibria:</span>
+                <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {(result.result?.correct_equilibria || result.correct_equilibria || []).length > 0 ? (
+                    (result.result?.correct_equilibria || result.correct_equilibria).map((eq: any, i: number) => (
+                      <span key={i} style={{ background: '#f1f5f9', color: '#334155', padding: '2px 8px', borderRadius: 4, fontSize: '0.85rem', fontFamily: 'monospace' }}>
+                        {JSON.stringify(eq).replace('[', '(').replace(']', ')')}
+                      </span>
+                    ))
+                  ) : (
+                    <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontStyle: 'italic' }}>None</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Analysis Details */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div style={{ background: '#ffffff', padding: 10, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <span style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>Matched (Correct):</span>
+                  <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {(result.result?.matched_equilibria || result.matched_equilibria || []).length > 0 ? (
+                      (result.result?.matched_equilibria || result.matched_equilibria).map((eq: any, i: number) => (
+                        <span key={i} style={{ background: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: 4, fontSize: '0.8rem', fontFamily: 'monospace' }}>
+                          {JSON.stringify(eq).replace('[', '(').replace(']', ')')}
+                        </span>
+                      ))
+                    ) : <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>—</span>}
+                  </div>
+                </div>
+
+                <div style={{ background: '#ffffff', padding: 10, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <span style={{ fontWeight: 600, color: '#dc2626', fontSize: '0.85rem' }}>Extra (Wrong):</span>
+                  <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {(result.result?.extra_equilibria || result.extra_equilibria || []).length > 0 ? (
+                      (result.result?.extra_equilibria || result.extra_equilibria).map((eq: any, i: number) => (
+                        <span key={i} style={{ background: '#fee2e2', color: '#b91c1c', padding: '2px 6px', borderRadius: 4, fontSize: '0.8rem', fontFamily: 'monospace' }}>
+                          {JSON.stringify(eq).replace('[', '(').replace(']', ')')}
+                        </span>
+                      ))
+                    ) : <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>—</span>}
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
 
         </div>

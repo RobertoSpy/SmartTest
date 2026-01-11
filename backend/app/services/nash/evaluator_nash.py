@@ -129,6 +129,9 @@ def evaluate_normal_form(question: Dict[str, Any], answer_text: str) -> Dict[str
         else:
             note = "Partial: ai identificat toate echilibria dar ai adăugat profile greșite (penalizare)."
 
+    # Generate detailed explanation
+    explanation = _generate_explanation(question.get("payoff_matrix"), matched, extra)
+
     return {
         "is_there": True,
         "provided_has": provided_has,
@@ -138,5 +141,95 @@ def evaluate_normal_form(question: Dict[str, Any], answer_text: str) -> Dict[str
         "extra_equilibria": extra,
         "score_percent": score,
         "note": note,
-        "correct_equilibria": sorted(true_equils)
+        "correct_equilibria": sorted(true_equils),
+        "explanation": explanation
     }
+
+def _generate_explanation(payoff_matrix: List[List[List[int]]], matched: List[Tuple[int, int]], extra: List[Tuple[int, int]]) -> str:
+    if not payoff_matrix:
+        return ""
+    
+    m = len(payoff_matrix)
+    n = len(payoff_matrix[0])
+    lines = []
+
+    # Explain matched (correct) equilibria
+    if matched:
+        lines.append("De ce sunt corecte soluțiile identificate:")
+        for (r, c) in matched:
+            # r, c are 1-based
+            row_idx = r - 1
+            col_idx = c - 1
+            u_row, u_col = payoff_matrix[row_idx][col_idx]
+            
+            lines.append(f"- (R{r}, C{c}): Jucătorul Linie câștigă {u_row}, Jucătorul Coloană câștigă {u_col}.")
+            # Prove row optimaility
+            row_opt = True
+            for k in range(m):
+                if payoff_matrix[k][col_idx][0] > u_row:
+                    row_opt = False # Should not happen for correct NE
+            
+            # Prove col optimality
+            col_opt = True
+            for l in range(n):
+                if payoff_matrix[row_idx][l][1] > u_col:
+                    col_opt = False # Should not happen
+            
+            if row_opt and col_opt:
+                lines.append(f"  Acesta este un Echilibru Nash deoarece niciun jucător nu poate obține un câștig mai mare schimbând unilateral strategia.")
+
+    # Explain extra (wrong) equilibria
+    if extra:
+        lines.append("\nDe ce sunt greșite celelalte profiluri:")
+        for (r, c) in extra:
+            row_idx = r - 1
+            col_idx = c - 1
+            
+            # Bounds check
+            if row_idx < 0 or row_idx >= m or col_idx < 0 or col_idx >= n:
+                lines.append(f"- (R{r}, C{c}): Profil inexistent în matrice.")
+                continue
+
+            u_row, u_col = payoff_matrix[row_idx][col_idx]
+            reasons = []
+            
+            # Check Row deviation
+            best_row_val = -float('inf')
+            best_row_idx = -1
+            for k in range(m):
+                val = payoff_matrix[k][col_idx][0]
+                if val > best_row_val:
+                    best_row_val = val
+                    best_row_idx = k
+            
+            if best_row_val > u_row:
+                reasons.append(f"Jucătorul Linie ar prefera R{best_row_idx + 1} (câștig {best_row_val} > {u_row})")
+
+            # Check Col deviation
+            best_col_val = -float('inf')
+            best_col_idx = -1
+            for l in range(n):
+                val = payoff_matrix[row_idx][l][1]
+                if val > best_col_val:
+                    best_col_val = val
+                    best_col_idx = l
+            
+            if best_col_val > u_col:
+                reasons.append(f"Jucătorul Coloană ar prefera C{best_col_idx + 1} (câștig {best_col_val} > {u_col})")
+            
+            if reasons:
+                lines.append(f"- (R{r}, C{c}): Nu este echilibru. {'; '.join(reasons)}.")
+            else:
+                 # This technically shouldn't happen if it WAS flagged as extra (meaning not in true_set)
+                 # Unless true_set calculation failed or it's actually NE but missed by generator?
+                 lines.append(f"- (R{r}, C{c}): Eroare de validare.")
+
+    if not matched and not extra:
+        # If user picked nothing or claimed "No" correctly/incorrectly
+        # We can explain why correct ones are correct (if any exist)
+        pass # The function signature assumes we explain the USER'S selection. 
+             # But maybe we should explain the CORRECT ones even if user missed them?
+             # For now, following the requested pattern "why are correct ones correct, why wrong ones wrong".
+             # If user missed correct ones, they are in 'missing'. I should pass 'missing' too to explain them?
+    
+    return "\n".join(lines)

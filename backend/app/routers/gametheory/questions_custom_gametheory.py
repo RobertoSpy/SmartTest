@@ -46,7 +46,7 @@ def solve_custom(req: SolveRequest, db: Session = Depends(get_db)):
         prompt=prompt_text,
         created_at=datetime.utcnow(),
         data={
-            "matrix": req.matrix,
+            "payoff_matrix": req.matrix,
             "row_labels": req.row_labels,
             "col_labels": req.col_labels,
             "player_row": req.player_row,

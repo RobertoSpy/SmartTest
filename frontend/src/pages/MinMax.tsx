@@ -168,15 +168,9 @@ export default function MinMax() {
       const res = await generateMinMaxQuestion(difficulty);
       setTree(res.tree);
 
-      // Save to history
-      const mockQ = {
-        id: `mock-minmax-${Date.now()}`,
-        type: 'minmax_generated',
-        prompt: `MinMax Tree (${difficulty}) - ${new Date().toLocaleTimeString()}`,
-        created_at: new Date().toISOString(),
-        data: res // { tree, difficulty }
-      };
-      saveMock(mockQ);
+      setTree(res.tree);
+
+      // Backend saves history automatically
       setRefreshKey(k => k + 1); // Trigger refresh
 
     } catch (err: any) {

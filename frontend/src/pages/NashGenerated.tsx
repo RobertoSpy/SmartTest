@@ -6,13 +6,9 @@ import GlassCard from "../components/ui/GlassCard";
 export default function NashGenerated({ onGenerated }: { onGenerated?: () => void }) {
   const [uiMode, setUiMode] = useState<"random" | "custom">("random");
 
-  // Random Mode State
-  const [count, setCount] = useState<number>(10);
-  const [forceMode, setForceMode] = useState<"force" | "percent">("force");
-  const [fractionNoNE, setFractionNoNE] = useState<number>(50);
-
-  // Custom Mode State
-  const [taskCount, setTaskCount] = useState<number>(1);
+  // Shared State
+  const [count, setCount] = useState<number>(5);
+  const [difficulty, setDifficulty] = useState<string>("medium");
 
   const [loading, setLoading] = useState(false);
 
@@ -20,11 +16,8 @@ export default function NashGenerated({ onGenerated }: { onGenerated?: () => voi
     e.preventDefault();
     setLoading(true);
     try {
-      if (forceMode === "force") {
-        await generateQuestions(count, { ensure: "at_least_one" });
-      } else {
-        await generateQuestions(count, { targetFractionNoNe: fractionNoNE / 100.0 });
-      }
+      // We now just send count and difficulty
+      await generateQuestions(count, { difficulty });
       onGenerated && onGenerated();
     } catch (err: any) {
       console.error(err);
@@ -38,7 +31,10 @@ export default function NashGenerated({ onGenerated }: { onGenerated?: () => voi
     e.preventDefault();
     setLoading(true);
     try {
-      await generateStudentInputQuestions(taskCount, { save_as: "normal_form_game_custom_student_input" });
+      await generateStudentInputQuestions(count, {
+        save_as: "normal_form_game_custom_student_input",
+        difficulty
+      });
       onGenerated && onGenerated();
     } catch (err: any) {
       console.error(err);
@@ -108,30 +104,17 @@ export default function NashGenerated({ onGenerated }: { onGenerated?: () => voi
               </label>
 
               <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Logica</span>
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Difficulty</span>
                 <select
-                  value={forceMode}
-                  onChange={(e) => setForceMode(e.target.value as any)}
-                  style={{ width: '200px' }}
+                  value={difficulty}
+                  onChange={(e) => setDifficulty(e.target.value)}
+                  style={{ width: '140px' }}
                 >
-                  <option value="force">Force Pure Nash (All)</option>
-                  <option value="percent">Mixed (No-Nash %)</option>
+                  <option value="easy">Easy (Small)</option>
+                  <option value="medium">Medium (Avg)</option>
+                  <option value="hard">Hard (Large)</option>
                 </select>
               </label>
-
-              {forceMode === "percent" && (
-                <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>No NE %</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={fractionNoNE}
-                    onChange={(e) => setFractionNoNE(Number(e.target.value))}
-                    style={{ width: '80px' }}
-                  />
-                </label>
-              )}
 
               <NeonButton
                 type="submit"
@@ -147,9 +130,9 @@ export default function NashGenerated({ onGenerated }: { onGenerated?: () => voi
               </NeonButton>
             </div>
             <p style={{ marginTop: '16px', color: "var(--text-secondary)", fontSize: '0.85rem', opacity: 0.8 }}>
-              {forceMode === "force"
-                ? "Guarantees at least one Pure Nash Equilibrium per game."
-                : "Allows games with NO equilibrium based on percentage."}
+              {difficulty === "easy" && "Small matrices, guaranteed Nash Equilibrium."}
+              {difficulty === "medium" && "Medium matrices, guaranteed Nash Equilibrium."}
+              {difficulty === "hard" && "Large matrices (up to 5x5), mixed difficulty (may have zero NE)."}
             </p>
           </form>
         )}
@@ -163,10 +146,23 @@ export default function NashGenerated({ onGenerated }: { onGenerated?: () => voi
                 <input
                   type="number"
                   min={1}
-                  value={taskCount}
-                  onChange={(e) => setTaskCount(Number(e.target.value) || 1)}
+                  value={count}
+                  onChange={(e) => setCount(Number(e.target.value) || 1)}
                   style={{ width: '100px' }}
                 />
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Difficulty</span>
+                <select
+                  value={difficulty}
+                  onChange={(e) => setDifficulty(e.target.value)}
+                  style={{ width: '140px' }}
+                >
+                  <option value="easy">Easy (Small)</option>
+                  <option value="medium">Medium (Avg)</option>
+                  <option value="hard">Hard (Large)</option>
+                </select>
               </label>
 
               <NeonButton
@@ -179,11 +175,11 @@ export default function NashGenerated({ onGenerated }: { onGenerated?: () => voi
                   color: 'white'
                 }}
               >
-                {loading ? "Creating..." : "Create Student Tasks"}
+                {loading ? "Creating..." : "Create Tasks"}
               </NeonButton>
             </div>
             <div style={{ marginTop: '16px', color: "var(--text-secondary)", fontSize: '0.85rem', opacity: 0.8 }}>
-              Creates tasks where the student must fill in the payoff values ("Student Input" mode).
+              Creates tasks where the student must fill in coordinates for the given difficulty.
             </div>
           </form>
         )}

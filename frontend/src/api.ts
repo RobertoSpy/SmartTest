@@ -37,7 +37,7 @@ function buildQuery(params: Record<string, any> | undefined) {
 
 export async function generateQuestions(
   count: number,
-  options?: { distribution?: string; ensure?: string; targetFractionNoNe?: number; save_as?: string }
+  options?: { distribution?: string; ensure?: string; targetFractionNoNe?: number; save_as?: string; difficulty?: string }
 ) {
   const params: Record<string, any> = { count };
   if (options?.distribution) params.distribution = options.distribution;
@@ -45,6 +45,7 @@ export async function generateQuestions(
   if (typeof options?.targetFractionNoNe === "number")
     params.target_fraction_no_ne = options.targetFractionNoNe;
   if (options?.save_as) params.save_as = options.save_as;
+  if (options?.difficulty) params.difficulty = options.difficulty;
 
   // Reverted to /api/questions
   const url = `${API_BASE}/api/questions/generate${buildQuery(params)}`;
@@ -213,6 +214,7 @@ export async function generateStudentInputQuestions(
     save_as?: string;
     fixedRows?: number;
     fixedCols?: number;
+    difficulty?: string;
   }
 ) {
   const params: Record<string, any> = { count };
@@ -223,6 +225,7 @@ export async function generateStudentInputQuestions(
   if (options?.save_as) params.save_as = options.save_as;
   if (typeof options?.fixedRows === "number") params.fixed_rows = options.fixedRows;
   if (typeof options?.fixedCols === "number") params.fixed_cols = options.fixedCols;
+  if (options?.difficulty) params.difficulty = options.difficulty;
 
   const url = `${API_BASE}/api/questions_custom/generate${buildQuery(params)}`;
   const res = await fetch(url, { method: "POST" });
@@ -309,3 +312,12 @@ export default {
   generateMinMaxQuestion,
   submitMinMaxAnswer,
 };
+
+export async function generateCSPProblem() {
+  const res = await fetch(`${API_BASE}/csp/generate_problem`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({})
+  });
+  return handleResponse(res);
+}

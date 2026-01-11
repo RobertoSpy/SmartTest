@@ -34,30 +34,42 @@ def generate_batch(
     student_input: bool = True,
     fixed_rows: Optional[int] = None,
     fixed_cols: Optional[int] = None,
+    difficulty: Optional[str] = "medium",
 ) -> List[Dict[str, Any]]:
     """
-    Generează un batch de task-uri. Dacă fixed_rows/fixed_cols sunt setate, folosește acele dimensiuni.
-    ensure: "any" | "at_least_one" | "none"
-    Dacă ensure == "any" (comportament implicit), pentru fiecare item alegem aleator target_has_pure True/False.
+    Generează un batch de task-uri. 
+    difficulty: "easy" | "medium" | "hard".
+    ensure overrides difficulty if strictly set, but we usually rely on difficulty defaults.
     """
     qdatas = []
+    
+    # Defaults based on difficulty
+    if difficulty == "easy":
+        possible_sizes = [(2, 2), (2, 3), (3, 2)]
+        default_want = None # Easy -> Mixed 50/50
+    elif difficulty == "medium":
+        possible_sizes = [(3, 3), (2, 4), (4, 2), (3, 4), (4, 3)]
+        default_want = None # Medium -> Mixed 50/50
+    elif difficulty == "hard":
+        possible_sizes = [(4, 4), (3, 5), (5, 3), (4, 5), (5, 4)]
+        default_want = None # Hard -> Mixed (any)
+    else:
+        possible_sizes = [(3, 3)]
+        default_want = None
+
     if ensure == "at_least_one":
         want = True
     elif ensure == "none":
         want = False
     else:
-        want = None  # any -> vom alege per item aleator dacă nu e forțat
+        want = default_want # Fallback to difficulty setting
 
     for _ in range(count):
         # decide m, n
         if fixed_rows and fixed_cols:
             m, n = fixed_rows, fixed_cols
         else:
-            if distribution:
-                m, n = 2, 2
-            else:
-                m = random.choice([2, 3, 4])
-                n = random.choice([2, 3, 4])
+            m, n = random.choice(possible_sizes)
 
         # decide target_has_pure: dacă want e None, alege aleator pentru acest item
         if want is None:
