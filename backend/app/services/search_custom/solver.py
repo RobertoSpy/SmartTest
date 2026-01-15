@@ -8,49 +8,64 @@ def normalize_text(text: str) -> str:
 def solve_prompt(user_prompt: str) -> Dict[str, Any]:
     """
     Attempts to 'solve' a user-provided prompt by matching it against known scenarios.
-    Returns a dictionary with correct_strategy, correct_heuristic, explanation, etc.
+    Uses keywords and flexible word matching for better natural language support.
     """
     clean_prompt = normalize_text(user_prompt)
+    prompt_words = set(clean_prompt.split())
+    
     best_match = None
     max_score = 0
 
     for sc in SCENARIOS:
         score = 0
         
-        # 1. Base Score: Match Problem Name (High weight)
+        # 1. Keyword Matching (High weight)
+        for kw in sc.keywords:
+            norm_kw = normalize_text(kw)
+            if norm_kw in clean_prompt:
+                # Direct phrase match within prompt
+                score += 15
+            elif norm_kw in prompt_words:
+                # Exact word match
+                score += 10
+            
+        # 2. Problem Name Matching
         norm_name = normalize_text(sc.problem_name)
         if norm_name in clean_prompt:
             score += 10
+        else:
+            # Check if name words are present
+            name_words = norm_name.split()
+            for nw in name_words:
+                if len(nw) > 3 and nw in prompt_words:
+                    score += 3
             
-        # 2. Match Keywords from Instance Text
+        # 3. Contextual Boosts (Discriminators from instance text)
         norm_instance = normalize_text(sc.instance_text)
-        keywords = norm_instance.split()
-        for word in keywords:
-            if len(word) > 3 and word in clean_prompt:
+        instance_keywords = norm_instance.split()
+        for word in instance_keywords:
+            if len(word) > 3 and word in prompt_words:
                 score += 2
         
-        # 3. Contextual Boosts (Discriminators)
+        # 4. Strategy specific indicators
         # "Toate solutiile" (All solutions) -> Strong indicator for Backtracking
-        if "backtracking" in sc.required_strategy.lower() and ("toate" in clean_prompt or "all" in clean_prompt or "exhaustiv" in clean_prompt):
+        if "backtracking" in sc.required_strategy.lower() and ("toate" in prompt_words or "all" in prompt_words or "exhaustiv" in prompt_words):
             score += 15
             
         # "Optim" / "Minim" -> Indicator for A* / BFS
-        if sc.required_strategy in ["A*", "BFS"] and ("optim" in clean_prompt or "minim" in clean_prompt or "scurt" in clean_prompt):
+        if sc.required_strategy in ["A*", "BFS"] and ("optim" in prompt_words or "minim" in prompt_words or "scurt" in prompt_words):
             score += 5
             
         # "Rapid" / "Mare" -> Indicator for Greedy / Hill Climbing
-        if sc.required_strategy in ["Greedy Best-First", "Hill Climbing"] and ("rapid" in clean_prompt or "mare" in clean_prompt or "mii" in clean_prompt):
+        if sc.required_strategy in ["Greedy Best-First", "Hill Climbing"] and ("rapid" in prompt_words or "mare" in prompt_words or "mii" in prompt_words):
             score += 5
-
-        # Direct strategy mention
-        if normalize_text(sc.required_strategy) in clean_prompt:
-            score += 20
 
         if score > max_score:
             max_score = score
             best_match = sc
             
-    if best_match and max_score > 0:
+    # Threshold for matching
+    if best_match and max_score >= 5:
         return {
             "correct_strategy": best_match.required_strategy,
             "correct_heuristic": best_match.required_heuristic,
@@ -60,5 +75,5 @@ def solve_prompt(user_prompt: str) -> Dict[str, Any]:
     return {
         "correct_strategy": "Unknown",
         "correct_heuristic": "Unknown",
-        "explanation": "Nu am putut identifica automat un scenariu cunoscut. Încearcă să folosești cuvinte cheie precum 'N-Queens', 'Hanoi', 'toate soluțiile', 'drum minim'." 
+        "explanation": "Nu am putut identifica automat un scenariu cunoscut. Încearcă să folosești cuvinte cheie precum 'N-Queens', 'Hanoi', 'toate soluțiile', 'drum minim', 'colorare'." 
     }

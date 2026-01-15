@@ -149,11 +149,11 @@ const SearchPage = () => {
                 </div>
                 <div style={{ marginBottom: 4 }}>
                   <span style={{ color: 'var(--text-secondary)' }}>Strategy: </span>
-                  <span style={{ fontWeight: 600, color: 'white' }}>{solutionResult.strategy}</span>
+                  <span style={{ fontWeight: 600, color: 'white' }}>{solutionResult.correct_strategy}</span>
                 </div>
                 <div style={{ marginBottom: 12 }}>
                   <span style={{ color: 'var(--text-secondary)' }}>Heuristic: </span>
-                  <span style={{ fontWeight: 600, color: 'white' }}>{solutionResult.heuristic}</span>
+                  <span style={{ fontWeight: 600, color: 'white' }}>{solutionResult.correct_heuristic}</span>
                 </div>
                 <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}>
                   {solutionResult.explanation}

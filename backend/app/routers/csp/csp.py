@@ -73,7 +73,6 @@ def solve_csp(req: CSPRequest):
                 id=q_id,
                 type="csp_custom",
                 prompt=prompt_text,
-                created_at=datetime.utcnow(),
                 data={
                     "variables": req.variables,
                     "domains": req.domains,
@@ -162,7 +161,6 @@ def generate_csp_problem(req: CSPGenerateRequest):
                 id=q_id,
                 type="csp_generated",
                 prompt=prompt_text,
-                created_at=datetime.utcnow(),
                 data={
                     "problem": problem_struct,
                     "solution": solution,

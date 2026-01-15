@@ -96,7 +96,7 @@ export default function QuestionView({ id, onBack }: { id: string; onBack: () =>
     );
   }
 
-  if (question.type === "search_problem_identification") {
+  if (question.type === "search_problem_identification" || question.type === "search_problem_identification_custom") {
     return (
       <GlassCard>
         <div style={{ marginBottom: 20 }}>

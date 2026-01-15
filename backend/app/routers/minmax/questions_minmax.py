@@ -30,6 +30,13 @@ class CheckResponse(BaseModel):
     reference: Optional[str] = None
     message: str
 
+class CreateCustomRequest(BaseModel):
+    tree: Dict
+    prompt: Optional[str] = "Custom MinMax Tree"
+    custom_input: Optional[str] = None
+    user_answer: Optional[Dict] = None
+    check_result: Optional[Dict] = None
+
 @router.post("/generate")
 def generate_question(req: GenerateRequest, db: Session = Depends(get_db)):
     """
@@ -43,7 +50,6 @@ def generate_question(req: GenerateRequest, db: Session = Depends(get_db)):
         id=q_id,
         type="minmax_generated",
         prompt=f"MinMax Tree ({req.difficulty})",
-        created_at=datetime.utcnow(),
         data={
             "tree": tree,
             "difficulty": req.difficulty
@@ -53,6 +59,27 @@ def generate_question(req: GenerateRequest, db: Session = Depends(get_db)):
     db.commit()
     
     return {"tree": tree, "difficulty": req.difficulty, "id": q_id}
+
+@router.post("/create_custom")
+def create_custom_question(req: CreateCustomRequest, db: Session = Depends(get_db)):
+    """
+    Saves a custom MinMax tree (and optionally its last result) to DB history.
+    """
+    q_id = str(uuid.uuid4())
+    q = Question(
+        id=q_id,
+        type="minmax_custom",
+        prompt=req.prompt,
+        data={
+            "tree": req.tree,
+            "customInput": req.custom_input,
+            "userAnswer": req.user_answer,
+            "checkResult": req.check_result
+        }
+    )
+    db.add(q)
+    db.commit()
+    return {"id": q_id, "status": "saved"}
 
 @router.post("/submit", response_model=CheckResponse)
 def submit_answer(req: SubmitRequest):
@@ -72,6 +99,5 @@ def submit_answer(req: SubmitRequest):
         correct_root_value=real_root_val if not is_correct else None,
         correct_visited_leaves=real_visited_leaves if not is_correct else None,
         explanation=explanation,
-        reference="Russell, S., & Norvig, P. Artificial Intelligence: A Modern Approach. Capitolul 'Adversarial Search'.",
         message=msg
     )

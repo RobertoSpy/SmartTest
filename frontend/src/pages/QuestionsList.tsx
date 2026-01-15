@@ -43,7 +43,11 @@ export default function QuestionsList({
       }
 
       // Filter out types that are now handled by backend persistence to prevent duplicates
-      mockQs = mockQs.filter((q: any) => q.type !== 'minmax_generated' && q.type !== 'csp_generated');
+      // Broadly filter any 'minmax' or 'csp' prefixes from local legacy storage
+      mockQs = mockQs.filter((q: any) =>
+        !q.type?.startsWith('minmax') &&
+        !q.type?.startsWith('csp')
+      );
 
       // 3. Merge
       let allQs = [...persistentQs, ...mockQs];
@@ -134,12 +138,12 @@ export default function QuestionsList({
       navigate('/minmax', { state: { restoreData: q.data } });
       return;
     }
-    if (q.type === 'csp_generated') {
-      navigate('/csp', { state: { problem: q.data?.problem } });
-      return;
-    }
-    if (q.type === 'csp_custom') {
-      navigate('/csp', { state: { restoreData: q.data } });
+    if (q.type?.startsWith('csp')) {
+      if (q.type === 'csp_generated') {
+        navigate('/csp', { state: { problem: q.data?.problem } });
+      } else {
+        navigate('/csp', { state: { restoreData: q.data } });
+      }
       return;
     }
 
@@ -156,7 +160,7 @@ export default function QuestionsList({
     if (t === "normal_form_game") return { cat: "Nash", sub: "Equilibrium" };
     if (t === "normal_form_game_custom_student_input") return { cat: "Nash", sub: "Student Task" };
 
-    if (t === "search_problem_identification") {
+    if (t === "search_problem_identification" || t === "search_problem_identification_custom") {
       // Differentiation logic:
       if (q.data?.is_solver) {
         return { cat: "Search", sub: "Custom ID" };
@@ -167,8 +171,11 @@ export default function QuestionsList({
     if (t === "minmax_generated") return { cat: "MinMax", sub: "Alpha-Beta Tree" };
     if (t === "minmax_custom") return { cat: "MinMax", sub: "Custom" };
     if (t === "minmax_random") return { cat: "MinMax", sub: "Random" };
-    if (t === "csp_generated") return { cat: "CSP", sub: "Validation" };
-    if (t === "csp_custom") return { cat: "CSP", sub: "Custom Solver" };
+    if (t.startsWith("csp")) {
+      if (t === "csp_generated") return { cat: "CSP", sub: "Validation" };
+      if (t === "csp_custom") return { cat: "CSP", sub: "Custom Solver" };
+      return { cat: "CSP", sub: "General" };
+    }
 
     if (t.startsWith("game_theory")) {
       // Differentiation logic:

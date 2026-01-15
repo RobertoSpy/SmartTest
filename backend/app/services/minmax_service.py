@@ -126,7 +126,6 @@ class AlphaBetaSolver:
         intro = "Algoritmul Alpha-Beta Pruning a fost executat astfel:\n\n"
         steps = "\n".join(self.log_steps)
         conclusion = f"\n\nTotal noduri frunză vizitate: {self.visited_leaves_count}."
-        reference = "\n\nReferință: Russell, S., & Norvig, P. Artificial Intelligence: A Modern Approach. Capitolul 'Adversarial Search'."
-        return intro + steps + conclusion + reference
+        return intro + steps + conclusion
 
 minmax_service = MinMaxService()

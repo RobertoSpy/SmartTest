@@ -291,6 +291,15 @@ export async function submitMinMaxAnswer(tree: any, rootValue: number, visitedLe
   return handleResponse(res);
 }
 
+export async function saveCustomMinMaxQuestion(payload: any) {
+  const res = await fetch(`${API_BASE}/api/questions/minmax/create_custom`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
 
 
 export default {

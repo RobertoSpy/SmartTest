@@ -44,7 +44,6 @@ def solve_custom(req: SolveRequest, db: Session = Depends(get_db)):
         id=q_id,
         type=f"game_theory_{req.q_type}", # store exact type or generic
         prompt=prompt_text,
-        created_at=datetime.utcnow(),
         data={
             "payoff_matrix": req.matrix,
             "row_labels": req.row_labels,

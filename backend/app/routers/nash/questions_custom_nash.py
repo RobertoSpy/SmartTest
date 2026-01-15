@@ -46,7 +46,6 @@ def generate_questions_endpoint(
                     id=qd.get("id") or str(uuid.uuid4()),
                     type="normal_form_game_custom_student_input",
                     prompt=qd.get("prompt"),
-                    created_at=datetime.utcnow(),
                     data={
                         "rows": qd.get("rows"),
                         "cols": qd.get("cols"),
@@ -62,7 +61,6 @@ def generate_questions_endpoint(
                     id=qd.get("id") or str(uuid.uuid4()),
                     type="normal_form_game",
                     prompt=qd.get("prompt") or f"Joc generat {qd.get('rows', 0)}x{qd.get('cols', 0)}",
-                    created_at=datetime.utcnow(),
                     data={
                         "payoff_matrix": qd.get("payoff_matrix"),
                         "rows": qd.get("rows"),

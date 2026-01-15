@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { generateMinMaxQuestion, submitMinMaxAnswer } from "../api";
+import { generateMinMaxQuestion, submitMinMaxAnswer, saveCustomMinMaxQuestion } from "../api";
 import GlassCard from "../components/ui/GlassCard";
 import NeonButton from "../components/ui/NeonButton";
 import QuestionsList from "./QuestionsList";
@@ -197,19 +197,14 @@ export default function MinMax() {
 
       // Save to History (Custom Mode only - Random is handled by Backend persistence)
       if (mode === "custom") {
-        const historyItem = {
-          id: `mock-minmax-custom-${Date.now()}`,
-          type: 'minmax_custom',
-          prompt: `Custom Tree Solve - ${new Date().toLocaleTimeString()}`,
-          created_at: new Date().toISOString(),
-          data: {
-            tree,
-            customInput,
-            userAnswer: { rootVal: String(rVal), visitedCount: String(vCount) },
-            checkResult: res
-          }
-        };
-        saveToMockHistory(historyItem);
+        await saveCustomMinMaxQuestion({
+          tree,
+          prompt: `Custom Tree Solve - ${new Date().toLocaleTimeString()} (DB)`,
+          custom_input: customInput,
+          user_answer: { rootVal: String(rVal), visitedCount: String(vCount) },
+          check_result: res
+        });
+        setRefreshKey(k => k + 1); // Trigger refresh
       }
 
     } catch (err: any) {
