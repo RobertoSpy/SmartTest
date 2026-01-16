@@ -95,6 +95,11 @@ npm run dev
 
 ---
 
+
+## Contact
+For questions or collaboration:
+robertoissues1@gmail.com
+
 ##  License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
