@@ -47,17 +47,16 @@ The fastest way to get everything running in a production-like environment.
 
 1.  **Configure Environment**: Create a `.env` file in the root directory:
     ```env
-POSTGRES_USER=smartest
-POSTGRES_PASSWORD=smartestpass
-POSTGRES_DB=smartest_db
+    POSTGRES_USER=smartest
+    POSTGRES_PASSWORD=smartestpass
+    POSTGRES_DB=smartest_db
 
-# Backend config
-DATABASE_URL=postgresql://smartest:smartestpass@db:5432/smartest_db
-PYTHONUNBUFFERED=1
-PYTHONPATH=/app/backend
-
-# Frontend (Vite)
-VITE_API_BASE=http://localhost:8000
+    # Backend config
+    DATABASE_URL=postgresql://smartest:smartestpass@db:5432/smartest_db
+    PYTHONUNBUFFERED=1
+    PYTHONPATH=/app/backend
+    # Frontend (Vite)
+    VITE_API_BASE=http://localhost:8000
     ```
 2.  **Launch**:
     ```bash
